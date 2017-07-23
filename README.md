@@ -40,7 +40,7 @@ For example:
 julia> using AMD
 julia> p = amd(A)
 julia> PAP = A[p, p]
-julia> L, d, α = ldl(A)
+julia> L, d, α = lldl(A)
 ```
 
 Using a memory parameter larger than or equal to the size of A will yield an
