@@ -1,0 +1,31 @@
+using LLDL
+using Base.Test
+
+# this matrix possesses an LDL factorization without pivoting
+A = [ 1.7     0     0     0     0     0     0     0   .13     0
+        0    1.     0     0   .02     0     0     0     0   .01
+        0     0   1.5     0     0     0     0     0     0     0
+        0     0     0   1.1     0     0     0     0     0     0
+        0   .02     0     0   2.6     0   .16   .09   .52   .53
+        0     0     0     0     0   1.2     0     0     0     0
+        0     0     0     0   .16     0   1.3     0     0   .56
+        0     0     0     0   .09     0     0   1.6   .11     0
+      .13     0     0     0   .52     0     0   .11   1.4     0
+        0   .01     0     0   .53     0   .56     0     0   3.1 ]
+A = sparse(A)
+
+L, d, α = lldl(A, memory=0)
+nnzl0 = nnz(L)
+@test nnzl0 == nnz(tril(A, -1))
+@test α == 0
+
+L, d, α = lldl(A, memory=5)
+nnzl5 = nnz(L)
+@test nnzl5 ≥ nnzl0
+@test α == 0
+
+L, d, α = lldl(A, memory=10)  # should be the exact factorization
+@test nnz(L) ≥ nnzl5
+@test α == 0
+L = L + speye(10)
+@test vecnorm(L * diagm(d) * L' - A) ≤ sqrt(eps()) * vecnorm(A)
