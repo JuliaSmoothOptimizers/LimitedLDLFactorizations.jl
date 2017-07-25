@@ -29,3 +29,17 @@ L, d, α = lldl(A, memory=10)  # should be the exact factorization
 @test α == 0
 L = L + speye(10)
 @test vecnorm(L * diagm(d) * L' - A) ≤ sqrt(eps()) * vecnorm(A)
+
+# this matrix requires a shift
+A = [ 1.  1.
+      1.  0. ]
+L, d, α = lldl(A)
+@test α ≥ 1.0e-3
+@test d[1] > 0
+@test d[2] < 0
+
+# specify our own shift
+L, d, α = lldl(A, α=1.0e-2)
+@test α ≥ 1.0e-2
+@test d[1] > 0
+@test d[2] < 0
