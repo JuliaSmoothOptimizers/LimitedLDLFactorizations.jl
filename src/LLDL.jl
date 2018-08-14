@@ -25,7 +25,7 @@ module LLDL
 export lldl
 
 
-lldl{Tv<:Number}(A::Array{Tv,2}; kwargs...) = lldl(sparse(A); kwargs...)
+lldl(A::Array{Tv,2}; kwargs...) where Tv<:Number = lldl(sparse(A); kwargs...)
 
 """
     lldl(A)
@@ -46,17 +46,17 @@ Compute the limited-memory LDLᵀ factorization of A without pivoting.
 - `droptol::Tv=Tv(0)`: to further sparsify `L`, all elements with magnitude smaller
                        than `droptol` are dropped.
 """
-function lldl{Tv<:Number, Ti<:Integer}(A::SparseMatrixCSC{Tv,Ti}; kwargs...)
+function lldl(A::SparseMatrixCSC{Tv,Ti}; kwargs...) where {Tv<:Number, Ti<:Integer}
   lldl(tril(A, -1), diag(A); kwargs...)
 end
 
 
 # Here T is the strict lower triangle of A.
-function lldl{Tv<:Number, Ti<:Integer}(T::SparseMatrixCSC{Tv,Ti},
-                                       adiag::Vector{Tv};
-                                       memory::Int=0,
-                                       α::Tv=Tv(0),
-                                       droptol::Tv=Tv(0))
+function lldl(T::SparseMatrixCSC{Tv,Ti},
+              adiag::AbstractVector{Tv};
+              memory::Int=0,
+              α::Tv=Tv(0),
+              droptol::Tv=Tv(0)) where {Tv<:Number, Ti<:Integer}
 
   memory < 0 && error("limited-memory parameter must be nonnegative")
   n = size(T, 1)
@@ -170,12 +170,12 @@ function lldl{Tv<:Number, Ti<:Integer}(T::SparseMatrixCSC{Tv,Ti},
 end
 
 
-function attempt_lldl!{Ti<:Integer, Tv<:Number}(nnzT::Int, d::Vector{Tv}, lvals::Vector{Tv},
-                                                rowind::Vector{Ti}, colptr::Vector{Ti},
-                                                w::Vector{Tv}, indr::Vector{Ti},
-                                                indf::Vector{Ti}, list::Vector{Ti};
-                                                memory::Int=0,
-                                                droptol::Tv=Tv(0))
+function attempt_lldl!(nnzT::Int, d::Vector{Tv}, lvals::Vector{Tv},
+                       rowind::Vector{Ti}, colptr::Vector{Ti},
+                       w::Vector{Tv}, indr::Vector{Ti},
+                       indf::Vector{Ti}, list::Vector{Ti};
+                       memory::Int=0,
+                       droptol::Tv=Tv(0)) where {Ti<:Integer, Tv<:Number}
 
   n = size(d, 1)
   np = n * memory
@@ -323,7 +323,7 @@ at least `n`. Only `keys` is modified.
 
 From the MINPACK2 function `dsel2` by Kastak, Lin and Moré.
 """
-function abspermute!{Tv<:Number, Ti<:Integer}(x::Vector{Tv}, keys::AbstractVector{Ti}, k::Ti)
+function abspermute!(x::Vector{Tv}, keys::AbstractVector{Ti}, k::Ti) where {Tv<:Number, Ti<:Integer}
 
   n = size(keys, 1)
   (n <= 1 || k < 1 || k > n) && return
