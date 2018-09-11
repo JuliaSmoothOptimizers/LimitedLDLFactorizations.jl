@@ -1,4 +1,4 @@
-using LLDL
+using LimitedLDLFactorizations
 using Base.Test
 
 # this matrix possesses an LDL factorization without pivoting
