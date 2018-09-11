@@ -1,13 +1,13 @@
 # Limited-Memory LDL' Factorization
 
-[![Build Status](https://travis-ci.org/JuliaSmoothOptimizers/LLDL.jl.svg?branch=master)](https://travis-ci.org/JuliaSmoothOptimizers/LLDL.jl)
-[![Build status](https://ci.appveyor.com/api/projects/status/uayusnq2flht8m80/branch/master?svg=true)](https://ci.appveyor.com/project/dpo/lldl-jl/branch/master)
-[![Coverage Status](https://coveralls.io/repos/github/JuliaSmoothOptimizers/LLDL.jl/badge.svg?branch=master)](https://coveralls.io/github/JuliaSmoothOptimizers/LLDL.jl?branch=master)
+[![Build Status](https://travis-ci.org/JuliaSmoothOptimizers/LimitedLDLFactorizations.jl.svg?branch=master)](https://travis-ci.org/JuliaSmoothOptimizers/LimitedLDLFactorizations.jl)
+[![Build status](https://ci.appveyor.com/api/projects/status/uayusnq2flht8m80/branch/master?svg=true)](https://ci.appveyor.com/project/dpo/limitedldlfactorizations-jl/branch/master)
+[![Coverage Status](https://coveralls.io/repos/github/JuliaSmoothOptimizers/LimitedLDLFactorizations.jl/badge.svg?branch=master)](https://coveralls.io/github/JuliaSmoothOptimizers/LimitedLDLFactorizations.jl?branch=master)
 
 A Port of LLDL to Julia
 See https://github.com/optimizers/lldl.
 
-LLDL is a limited-memory LDL' factorization for symmetric matrices.
+LimitedLDLFactorizations is a limited-memory LDL' factorization for symmetric matrices.
 Given a symmetric matrix A, we search for a unit lower triangular L, a
 diagonal D and a diagonal ∆ such that LDL' is an incomplete factorization
 of A+∆. The elements of the diagonal matrix ∆ have the form ±α, where α ≥ 0
@@ -16,8 +16,7 @@ is a shift.
 ## Installing
 
 ```JULIA
-julia> Pkg.clone("https://github.com/JuliaSmoothOptimizers/LLDL.jl.git")
-julia> Pkg.test("LLDL")
+julia> Pkg.add("LimitedLDLFactorizations")
 ```
 
 ## Brief Description

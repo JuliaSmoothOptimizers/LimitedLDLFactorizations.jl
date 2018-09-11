@@ -20,7 +20,7 @@ The modified version is described in [3,4].
 [4] https://github.com/optimizers/lldl
 """
 
-module LLDL
+module LimitedLDLFactorizations
 
 export lldl
 
