@@ -1,5 +1,4 @@
-using LimitedLDLFactorizations
-using Base.Test
+using LimitedLDLFactorizations, Test, LinearAlgebra, SparseArrays
 
 # this matrix possesses an LDL factorization without pivoting
 A = [ 1.7     0     0     0     0     0     0     0   .13     0
@@ -27,8 +26,8 @@ nnzl5 = nnz(L)
 L, d, α = lldl(A, memory=10)  # should be the exact factorization
 @test nnz(L) ≥ nnzl5
 @test α == 0
-L = L + speye(10)
-@test vecnorm(L * diagm(d) * L' - A) ≤ sqrt(eps()) * vecnorm(A)
+L = L + I
+@test norm(L * diagm(0 => d) * L' - A) ≤ sqrt(eps()) * norm(A)
 
 # this matrix requires a shift
 A = [ 1.  1.
