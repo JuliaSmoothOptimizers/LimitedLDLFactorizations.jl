@@ -19,11 +19,11 @@ The modified version is described in [3,4].
     70(1):9--41, 2015. DOI 10.1007/s11075-014-9933-x
 [4] https://github.com/optimizers/lldl
 """
-
 module LimitedLDLFactorizations
 
 export lldl
 
+using SparseArrays, LinearAlgebra
 
 lldl(A::Array{Tv,2}; kwargs...) where Tv<:Number = lldl(sparse(A); kwargs...)
 
@@ -113,8 +113,8 @@ function lldl(T::SparseMatrixCSC{Tv,Ti},
   indf = zeros(Ti, n)  # indf[col] = position in w of the next entry in column col to be used during the factorization.
   list = zeros(Ti, n)  # list[col] = linked list of columns that will update column col.
 
-  pos = find(adiag .> Tv(0))
-  neg = find(adiag .≤ Tv(0))
+  pos = findall(adiag .> Tv(0))
+  neg = findall(adiag .≤ Tv(0))
 
   while !(factorized || tired)
 
