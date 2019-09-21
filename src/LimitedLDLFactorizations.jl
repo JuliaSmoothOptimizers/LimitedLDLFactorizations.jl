@@ -29,10 +29,13 @@ lldl(A::Array{Tv,2}; kwargs...) where Tv<:Number = lldl(sparse(A); kwargs...)
 
 """
     lldl(A)
+
 Compute the limited-memory LDLᵀ factorization of A without pivoting.
+
 # Arguments
 - `A::SparseMatrixCSC{Tv,Ti}`: matrix to factorize (its strict lower triangle and
                                diagonal will be extracted)
+
 # Keyword arguments
 - `memory::Int=0`: extra amount of memory to allocate for the incomplete factor `L`.
                    The total memory allocated is nnz(T) + n * `memory`, where
