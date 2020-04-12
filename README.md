@@ -14,6 +14,8 @@ diagonal D and a diagonal ∆ such that LDL' is an incomplete factorization
 of A+∆. The elements of the diagonal matrix ∆ have the form ±α, where α ≥ 0
 is a shift.
 
+It is possible to only supply the lower triangle of A and/or a prescribed permutation that attempts to diminish fill-in.
+
 ## Installing
 
 ```JULIA
@@ -30,23 +32,11 @@ The strict lower triangle and diagonal of sparse matrices will be extracted.
 Optionally, supply
 * a memory parameter to allow more fill in the L factor;
 * a drop tolerance to discard small elements in the L factor;
-* an initial shift to speed up the process in case the factorization does
-  not exist without shift.
-
-Currently, ordering is not implicitly supported.
-The input matrix A must be ordered explicitly before calling `lldl()`.
-For example:
-```julia
-julia> using AMD
-julia> p = amd(A)
-julia> PAP = A[p, p]
-julia> L, d, α = lldl(A)
-```
+* an initial shift to speed up the process in case the factorization does not exist without shift.
 
 Using a memory parameter larger than or equal to the size of A will yield an
-exact factorization provided one exists without pivoting. That is the
-case of symmetric quasi-definite matrices. However, it is probably not the
-most efficient way to compute such a factorization.
+exact factorization provided one exists with the permutation supplied.
+In particular, the full factorization exists for any symmetric permutation of a symmetric quasi-definite matrix.
 
 ## More Examples
 
