@@ -1,4 +1,6 @@
-using LimitedLDLFactorizations, LinearAlgebra, SparseArrays, Test
+using LinearAlgebra, SparseArrays, Test
+
+using AMD, LimitedLDLFactorizations
 
 # this matrix possesses an LDL factorization without pivoting
 A = [ 1.7     0     0     0     0     0     0     0   .13     0
@@ -13,21 +15,23 @@ A = [ 1.7     0     0     0     0     0     0     0   .13     0
         0   .01     0     0   .53     0   .56     0     0   3.1 ]
 A = sparse(A)
 
-L, d, α, P = lldl(A, collect(1 : A.n), memory=0)
-nnzl0 = nnz(L)
-@test nnzl0 == nnz(tril(A, -1))
-@test α == 0
+for perm ∈ (collect(1 : A.n), amd(A))
+  L, d, α, P = lldl(A, perm, memory=0)
+  nnzl0 = nnz(L)
+  @test nnzl0 == nnz(tril(A, -1))
+  @test α == 0
 
-L, d, α, P = lldl(A, collect(1 : A.n), memory=5)
-nnzl5 = nnz(L)
-@test nnzl5 ≥ nnzl0
-@test α == 0
+  L, d, α, P = lldl(A, perm, memory=5)
+  nnzl5 = nnz(L)
+  @test nnzl5 ≥ nnzl0
+  @test α == 0
 
-L, d, α, P = lldl(A, collect(1 : A.n), memory=10)  # should be the exact factorization
-@test nnz(L) ≥ nnzl5
-@test α == 0
-L = L + I
-@test norm(L * diagm(0 => d) * L' - A) ≤ sqrt(eps()) * norm(A)
+  L, d, α, P = lldl(A, perm, memory=10)  # should be the exact factorization
+  @test nnz(L) ≥ nnzl5
+  @test α == 0
+  L = L + I
+  @test norm(L * diagm(0 => d) * L' - A[perm, perm]) ≤ sqrt(eps()) * norm(A)
+end
 
 # this matrix requires a shift
 A = [ 1.  1.
@@ -44,7 +48,7 @@ L, d, α = lldl(A, α=1.0e-2)
 @test d[2] < 0
 
 
-# Upper triangle only
+# Lower triangle only
 
 A = [ 1.7     0     0     0     0     0     0     0   .13     0
         0    1.     0     0   .02     0     0     0     0   .01
@@ -58,25 +62,25 @@ A = [ 1.7     0     0     0     0     0     0     0   .13     0
         0   .01     0     0   .53     0   .56     0     0   3.1 ]
 A = sparse(A)
 B = tril(A)
-n = A.n
-perm = collect(1 : n)
 
-(L, D, α, P) = lldl(B, perm, memory=0)
+for perm ∈ (collect(1 : A.n), amd(A))
+  (L, D, α, P) = lldl(B, perm, memory=0)
 
-nnzl0 = nnz(L)
-@test nnzl0 == nnz(tril(A, -1))
-@test α == 0
+  nnzl0 = nnz(L)
+  @test nnzl0 == nnz(tril(A, -1))
+  @test α == 0
 
-(L, D, α, P) = lldl(B, perm, memory=5)
-nnzl5 = nnz(L)
-@test nnzl5 ≥ nnzl0
-@test α == 0
+  (L, D, α, P) = lldl(B, perm, memory=5)
+  nnzl5 = nnz(L)
+  @test nnzl5 ≥ nnzl0
+  @test α == 0
 
-(L, D, α, P) = lldl(B, perm, memory=10)
-@test nnz(L) ≥ nnzl5
-@test α == 0
-L = L + I
-@test norm(L * diagm(0 => D) * L' - A) ≤ sqrt(eps()) * norm(A)
+  (L, D, α, P) = lldl(B, perm, memory=10)
+  @test nnz(L) ≥ nnzl5
+  @test α == 0
+  L = L + I
+  @test norm(L * diagm(0 => D) * L' - A[perm, perm]) ≤ sqrt(eps()) * norm(A)
+end
 
 # this matrix requires a shift
 A = [ 1.  0.
