@@ -2,7 +2,7 @@ using LinearAlgebra, SparseArrays, Test
 
 using AMD, LimitedLDLFactorizations
 
-# this matrix possesses an LDL factorization without pivoting
+# this matrix possesses an LDLᵀ factorization without pivoting
 A = [ 1.7     0     0     0     0     0     0     0   .13     0
         0    1.     0     0   .02     0     0     0     0   .01
         0     0   1.5     0     0     0     0     0     0     0
@@ -16,36 +16,48 @@ A = [ 1.7     0     0     0     0     0     0     0   .13     0
 A = sparse(A)
 
 for perm ∈ (collect(1 : A.n), amd(A))
-  L, d, α, P = lldl(A, perm, memory=0)
-  nnzl0 = nnz(L)
+  LLDL = lldl(A, perm, memory=0)
+  nnzl0 = nnz(LLDL.L)
   @test nnzl0 == nnz(tril(A, -1))
-  @test α == 0
+  @test LLDL.α == 0
 
-  L, d, α, P = lldl(A, perm, memory=5)
-  nnzl5 = nnz(L)
+  LLDL = lldl(A, perm, memory=5)
+  nnzl5 = nnz(LLDL.L)
   @test nnzl5 ≥ nnzl0
-  @test α == 0
+  @test LLDL.α == 0
 
-  L, d, α, P = lldl(A, perm, memory=10)  # should be the exact factorization
-  @test nnz(L) ≥ nnzl5
-  @test α == 0
-  L = L + I
-  @test norm(L * diagm(0 => d) * L' - A[perm, perm]) ≤ sqrt(eps()) * norm(A)
+  LLDL = lldl(A, perm, memory=10)
+  @test nnz(LLDL.L) ≥ nnzl5
+  @test LLDL.α == 0
+  L = LLDL.L + I
+  @test norm(L * diagm(0 => LLDL.D) * L' - A[perm, perm]) ≤ sqrt(eps()) * norm(A)
+
+  sol = ones(A.n)
+  b = A * sol
+  x = LLDL \ b
+  @test x ≈ sol
+
+  y = similar(b)
+  ldiv!(y, LLDL, b)
+  @test y ≈ sol
+
+  ldiv!(LLDL, b)
+  @test b ≈ sol
 end
 
 # this matrix requires a shift
 A = [ 1.  1.
       1.  0. ]
-L, d, α, P = lldl(A)
-@test α ≥ 1.0e-3
-@test d[1] > 0
-@test d[2] < 0
+LLDL = lldl(A)
+@test LLDL.α ≥ 1.0e-3
+@test LLDL.D[1] > 0
+@test LLDL.D[2] < 0
 
 # specify our own shift
-L, d, α = lldl(A, α=1.0e-2)
-@test α ≥ 1.0e-2
-@test d[1] > 0
-@test d[2] < 0
+LLDL = lldl(A, α=1.0e-2)
+@test LLDL.α ≥ 1.0e-2
+@test LLDL.D[1] > 0
+@test LLDL.D[2] < 0
 
 
 # Lower triangle only
@@ -64,34 +76,45 @@ A = sparse(A)
 B = tril(A)
 
 for perm ∈ (collect(1 : A.n), amd(A))
-  (L, D, α, P) = lldl(B, perm, memory=0)
-
-  nnzl0 = nnz(L)
+  LLDL = lldl(B, perm, memory=0)
+  nnzl0 = nnz(LLDL.L)
   @test nnzl0 == nnz(tril(A, -1))
-  @test α == 0
+  @test LLDL.α == 0
 
-  (L, D, α, P) = lldl(B, perm, memory=5)
-  nnzl5 = nnz(L)
+  LLDL = lldl(B, perm, memory=5)
+  nnzl5 = nnz(LLDL.L)
   @test nnzl5 ≥ nnzl0
-  @test α == 0
+  @test LLDL.α == 0
 
-  (L, D, α, P) = lldl(B, perm, memory=10)
-  @test nnz(L) ≥ nnzl5
-  @test α == 0
-  L = L + I
-  @test norm(L * diagm(0 => D) * L' - A[perm, perm]) ≤ sqrt(eps()) * norm(A)
+  LLDL = lldl(B, perm, memory=10)
+  @test nnz(LLDL.L) ≥ nnzl5
+  @test LLDL.α == 0
+  L = LLDL.L + I
+  @test norm(L * diagm(0 => LLDL.D) * L' - A[perm, perm]) ≤ sqrt(eps()) * norm(A)
+
+  sol = ones(A.n)
+  b = A * sol
+  x = LLDL \ b
+  @test x ≈ sol
+
+  y = similar(b)
+  ldiv!(y, LLDL, b)
+  @test y ≈ sol
+
+  ldiv!(LLDL, b)
+  @test b ≈ sol
 end
 
 # this matrix requires a shift
 A = [ 1.  0.
       1.  0. ]
-(L, D, α, P) = lldl(A)
-@test α ≥ 1.0e-3
-@test d[1] > 0
-@test d[2] < 0
+LLDL = lldl(A)
+@test LLDL.α ≥ 1.0e-3
+@test LLDL.D[1] > 0
+@test LLDL.D[2] < 0
 
 # specify our own shift
-(L, D, α, P) = lldl(A, α=1.0e-2)
-@test α ≥ 1.0e-2
-@test d[1] > 0
-@test d[2] < 0
+LLDL = lldl(A, α=1.0e-2)
+@test LLDL.α ≥ 1.0e-2
+@test LLDL.D[1] > 0
+@test LLDL.D[2] < 0
