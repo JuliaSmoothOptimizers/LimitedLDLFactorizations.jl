@@ -15,6 +15,7 @@ of A+∆. The elements of the diagonal matrix ∆ have the form ±α, where α �
 is a shift.
 
 It is possible to only supply the lower triangle of A and/or a prescribed permutation that attempts to diminish fill-in.
+[AMD.jl](https://github.com/JuliaSmoothOptimizers/AMD.jl) and [Metis.jl](https://github.com/JuliaSparse/Metis.jl) are recommended packages for computing fill-reducing orderings of sparse matrices.
 
 ## Installing
 
@@ -25,7 +26,7 @@ pkg> add LimitedLDLFactorizations
 
 ## Brief Description
 
-The only functions exported are `lldl()`, `\` and `ldiv!`.
+The only functions exported are `lldl`, `\`, `ldiv!` and `nnz`.
 Supply a dense array or sparse matrix to `lldl`.
 Dense arrays will be converted to sparse.
 The strict lower triangle and diagonal of sparse matrices will be extracted.

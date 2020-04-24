@@ -1,6 +1,6 @@
 using LinearAlgebra, SparseArrays, Test
 
-using AMD, LimitedLDLFactorizations
+using AMD, Metis, LimitedLDLFactorizations
 
 # this matrix possesses an LDLᵀ factorization without pivoting
 A = [ 1.7     0     0     0     0     0     0     0   .13     0
@@ -15,19 +15,21 @@ A = [ 1.7     0     0     0     0     0     0     0   .13     0
         0   .01     0     0   .53     0   .56     0     0   3.1 ]
 A = sparse(A)
 
-for perm ∈ (collect(1 : A.n), amd(A))
+for perm ∈ (collect(1 : A.n), amd(A), Metis.permutation(A)[1])
+  perm = Int.(perm)
+
   LLDL = lldl(A, perm, memory=0)
-  nnzl0 = nnz(LLDL.L)
-  @test nnzl0 == nnz(tril(A, -1))
+  nnzl0 = nnz(LLDL)
+  @test nnzl0 == nnz(tril(A))
   @test LLDL.α == 0
 
   LLDL = lldl(A, perm, memory=5)
-  nnzl5 = nnz(LLDL.L)
+  nnzl5 = nnz(LLDL)
   @test nnzl5 ≥ nnzl0
   @test LLDL.α == 0
 
   LLDL = lldl(A, perm, memory=10)
-  @test nnz(LLDL.L) ≥ nnzl5
+  @test nnz(LLDL) ≥ nnzl5
   @test LLDL.α == 0
   L = LLDL.L + I
   @test norm(L * diagm(0 => LLDL.D) * L' - A[perm, perm]) ≤ sqrt(eps()) * norm(A)
@@ -75,19 +77,21 @@ A = [ 1.7     0     0     0     0     0     0     0   .13     0
 A = sparse(A)
 B = tril(A)
 
-for perm ∈ (collect(1 : A.n), amd(A))
+for perm ∈ (collect(1 : A.n), amd(A), Metis.permutation(A)[1])
+  perm = Int.(perm)
+
   LLDL = lldl(B, perm, memory=0)
-  nnzl0 = nnz(LLDL.L)
-  @test nnzl0 == nnz(tril(A, -1))
+  nnzl0 = nnz(LLDL)
+  @test nnzl0 == nnz(tril(A))
   @test LLDL.α == 0
 
   LLDL = lldl(B, perm, memory=5)
-  nnzl5 = nnz(LLDL.L)
+  nnzl5 = nnz(LLDL)
   @test nnzl5 ≥ nnzl0
   @test LLDL.α == 0
 
   LLDL = lldl(B, perm, memory=10)
-  @test nnz(LLDL.L) ≥ nnzl5
+  @test nnz(LLDL) ≥ nnzl5
   @test LLDL.α == 0
   L = LLDL.L + I
   @test norm(L * diagm(0 => LLDL.D) * L' - A[perm, perm]) ≤ sqrt(eps()) * norm(A)

@@ -14,14 +14,14 @@ The modified version is described in [3,4].
 [1] C.-J. Lin and J. J. Moré. Incomplete Cholesky factorizations with limited
     memory. SIAM Journal on Scientific Computing, 21(1):24--45, 1999.
 [2] http://www.mcs.anl.gov/~more/icfs
-[3] D. Orban. Limited-Memory LDLT Factorization of Symmetric Quasi-Definite
+[3] D. Orban. Limited-Memory LDLᵀ Factorization of Symmetric Quasi-Definite
     Matrices with Application to Constrained Optimization. Numerical Algorithms
     70(1):9--41, 2015. DOI 10.1007/s11075-014-9933-x
 [4] https://github.com/optimizers/lldl
 """
 module LimitedLDLFactorizations
 
-export lldl, \, ldiv!
+export lldl, \, ldiv!, nnz
 
 using AMD, LinearAlgebra, SparseArrays
 
@@ -523,5 +523,8 @@ function ldiv!(y::AbstractVector{T}, LLDL::LimitedLDLFactorization{T,Ti}, b::Abs
   y .= b
   lldl_solve!(LLDL.L.n, y, LLDL.L.colptr, LLDL.L.rowval, LLDL.L.nzval, LLDL.D, LLDL.P)
 end
+
+import SparseArrays.nnz
+@inline nnz(LLDL::LimitedLDLFactorization{T,Ti}) where {T<:Real,Ti<:Integer} = nnz(LLDL.L) + length(LLDL.D)
 
 end  # Module.
