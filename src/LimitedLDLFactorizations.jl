@@ -1,6 +1,6 @@
 """
-A Pure Julia Version of LLDL.
-A left-looking implementation of the sparse LDL factorization
+A Pure Julia Version of limited-memory LDLᵀ factorization.
+A left-looking implementation of the sparse LDLᵀ factorization
 of a symmetric matrix with the possibility to compute a
 limited-memory incomplete factorization.
 
@@ -21,9 +21,16 @@ The modified version is described in [3,4].
 """
 module LimitedLDLFactorizations
 
-export lldl
+export lldl, \, ldiv!
 
 using AMD, LinearAlgebra, SparseArrays
+
+mutable struct LimitedLDLFactorization{T<:Real,Ti<:Integer}
+  L::SparseMatrixCSC{T,Ti}
+  D::Vector{T}
+  P::Vector{Ti}
+  α::T
+end
 
 lldl(A::Array{Tv,2}; kwargs...) where Tv<:Number = lldl(sparse(A); kwargs...)
 
@@ -200,7 +207,7 @@ function lldl(T::SparseMatrixCSC{Tv,Ti},
   end
 
   L = SparseMatrixCSC{Tv,Ti}(n, n, colptr, rowind, lvals)
-  return (L, d, α, P)
+  return LimitedLDLFactorization(L, d, P, α)
 end
 
 function attempt_lldl!(nnzT::Int, d::Vector{Tv}, lvals::Vector{Tv},
@@ -455,6 +462,66 @@ function abspermute!(x::Vector{Tv}, keys::AbstractVector{Ti}, k::Ti) where {Tv<:
     lp = lc
     lc = u - l
   end
+end
+
+function lldl_lsolve!(n, x, Lp, Li, Lx)
+  @inbounds for j = 1:n
+    xj = x[j]
+    @inbounds for p = Lp[j] : (Lp[j+1] - 1)
+      x[Li[p]] -= Lx[p] * xj
+    end
+  end
+  return x
+end
+
+function lldl_dsolve!(n, x, D)
+  @inbounds for j = 1:n
+    x[j] /= D[j]
+  end
+  return x
+end
+
+function lldl_ltsolve!(n, x, Lp, Li, Lx)
+  @inbounds for j = n:-1:1
+    xj = x[j]
+    @inbounds for p = Lp[j] : (Lp[j+1] - 1)
+      xj -= Lx[p] * x[Li[p]]
+    end
+    x[j] = xj
+  end
+  return x
+end
+
+function lldl_solve(n, b, Lp, Li, Lx, D, P)
+  y = b[P]
+  lldl_lsolve!(n, y, Lp, Li, Lx)
+  lldl_dsolve!(n, y, D)
+  lldl_ltsolve!(n, y, Lp, Li, Lx)
+  x = similar(b)
+  x[P] = y
+  return x
+end
+
+function lldl_solve!(n, b, Lp, Li, Lx, D, P)
+  @views y = b[P]
+  lldl_lsolve!(n, y, Lp, Li, Lx)
+  lldl_dsolve!(n, y, D)
+  lldl_ltsolve!(n, y, Lp, Li, Lx)
+  @views b[P] = y
+  return b
+end
+
+import Base.(\)
+@inline (\)(LLDL::LimitedLDLFactorization{T,Ti}, b::AbstractVector{T}) where {T<:Real,Ti<:Integer} =
+  lldl_solve(LLDL.L.n, b, LLDL.L.colptr, LLDL.L.rowval, LLDL.L.nzval, LLDL.D, LLDL.P)
+
+import LinearAlgebra.ldiv!
+@inline ldiv!(LLDL::LimitedLDLFactorization{T,Ti}, b::AbstractVector{T}) where {T<:Real,Ti<:Integer} =
+  lldl_solve!(LLDL.L.n, b, LLDL.L.colptr, LLDL.L.rowval, LLDL.L.nzval, LLDL.D, LLDL.P)
+
+function ldiv!(y::AbstractVector{T}, LLDL::LimitedLDLFactorization{T,Ti}, b::AbstractVector{T}) where {T<:Real,Ti<:Integer}
+  y .= b
+  lldl_solve!(LLDL.L.n, y, LLDL.L.colptr, LLDL.L.rowval, LLDL.L.nzval, LLDL.D, LLDL.P)
 end
 
 end  # Module.
