@@ -16,7 +16,6 @@ A = [ 1.7     0     0     0     0     0     0     0   .13     0
 A = sparse(A)
 
 for perm ∈ (collect(1 : A.n), amd(A), Metis.permutation(A)[1])
-  perm = Int.(perm)
 
   LLDL = lldl(A, perm, memory=0)
   nnzl0 = nnz(LLDL)
@@ -78,7 +77,6 @@ A = sparse(A)
 B = tril(A)
 
 for perm ∈ (collect(1 : A.n), amd(A), Metis.permutation(A)[1])
-  perm = Int.(perm)
 
   LLDL = lldl(B, perm, memory=0)
   nnzl0 = nnz(LLDL)
