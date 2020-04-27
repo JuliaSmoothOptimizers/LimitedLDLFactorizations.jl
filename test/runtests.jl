@@ -30,8 +30,9 @@ for perm ∈ (collect(1 : A.n), amd(A), Metis.permutation(A)[1])
   LLDL = lldl(A, perm, memory=10)
   @test nnz(LLDL) ≥ nnzl5
   @test LLDL.α == 0
-  L = LLDL.L + I
-  @test norm(L * diagm(0 => LLDL.D) * L' - A[perm, perm]) ≤ sqrt(eps()) * norm(A)
+  L = UnitLowerTriangular(LLDL.L)
+  D = Diagonal(LLDL.D)
+  @test norm(L * D * L' - A[perm, perm]) ≤ sqrt(eps()) * norm(A)
 
   sol = ones(A.n)
   b = A * sol
@@ -91,8 +92,9 @@ for perm ∈ (collect(1 : A.n), amd(A), Metis.permutation(A)[1])
   LLDL = lldl(B, perm, memory=10)
   @test nnz(LLDL) ≥ nnzl5
   @test LLDL.α == 0
-  L = LLDL.L + I
-  @test norm(L * diagm(0 => LLDL.D) * L' - A[perm, perm]) ≤ sqrt(eps()) * norm(A)
+  L = UnitLowerTriangular(LLDL.L)
+  D = Diagonal(LLDL.D)
+  @test norm(L * D * L' - A[perm, perm]) ≤ sqrt(eps()) * norm(A)
 
   sol = ones(A.n)
   b = A * sol
