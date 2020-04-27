@@ -492,28 +492,19 @@ function lldl_ltsolve!(n, x, Lp, Li, Lx)
   return x
 end
 
-function lldl_solve(n, b, Lp, Li, Lx, D, P)
-  y = b[P]
-  lldl_lsolve!(n, y, Lp, Li, Lx)
-  lldl_dsolve!(n, y, D)
-  lldl_ltsolve!(n, y, Lp, Li, Lx)
-  x = similar(b)
-  x[P] = y
-  return x
-end
-
 function lldl_solve!(n, b, Lp, Li, Lx, D, P)
   @views y = b[P]
   lldl_lsolve!(n, y, Lp, Li, Lx)
   lldl_dsolve!(n, y, D)
   lldl_ltsolve!(n, y, Lp, Li, Lx)
-  @views b[P] = y
   return b
 end
 
 import Base.(\)
-@inline (\)(LLDL::LimitedLDLFactorization{T,Ti}, b::AbstractVector{T}) where {T<:Real,Ti<:Integer} =
-  lldl_solve(LLDL.L.n, b, LLDL.L.colptr, LLDL.L.rowval, LLDL.L.nzval, LLDL.D, LLDL.P)
+function (\)(LLDL::LimitedLDLFactorization{T,Ti}, b::AbstractVector{T}) where {T<:Real,Ti<:Integer}
+  y = copy(b)
+  lldl_solve!(LLDL.L.n, y, LLDL.L.colptr, LLDL.L.rowval, LLDL.L.nzval, LLDL.D, LLDL.P)
+end
 
 import LinearAlgebra.ldiv!
 @inline ldiv!(LLDL::LimitedLDLFactorization{T,Ti}, b::AbstractVector{T}) where {T<:Real,Ti<:Integer} =
