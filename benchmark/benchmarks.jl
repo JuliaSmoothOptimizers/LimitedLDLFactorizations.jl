@@ -1,24 +1,38 @@
-using BenchmarkTools
-using MatrixMarket
+using BenchmarkTools, MatrixMarket
+using LinearAlgebra, SparseArrays, DelimitedFiles
+using LimitedLDLFactorizations
 
-using LinearAlgebra
-using SparseArrays
+# download from https://github.com/optimizers/sqd-collection
+# run(`git clone https://github.com/optimizers/sqd-collection.git`)
 
-include("problems.jl")
+const sqd_path = joinpath(dirname(pathof(LimitedLDLFactorizations)), "..", "benchmark", "sqd-collection")
+subdirs = readdir(sqd_path)
+const formulations = ("2x2", "3x3")
+const iters = (0, 5, 10)
 
-SUITE = BenchmarkGroup()
+const SUITE = BenchmarkGroup()
 
 SUITE["LLDL"] = BenchmarkGroup()
+SUITE["LDIV"] = BenchmarkGroup()
 
-for mem in [0,5,10]
-for p in problems
-    
-  A = MatrixMarket.mmread("../sqd-collection/$p/3x3/iter_0/K_0.mtx")
-  A_upper = triu(MatrixMarket.mmread("../sqd-collection/$p/3x3/iter_0/K_0.mtx"))
-  
-  SUITE["FULL"]["LOADING"][p] = @benchmarkable MatrixMarket.mmread("../sqd-collection/" * string($p) *"/3x3/iter_0/K_0.mtx") samples = 10
-  SUITE["UPPER"]["LOADING"][p] = @benchmarkable triu(MatrixMarket.mmread("../sqd-collection/" * string($p) *"/3x3/iter_0/K_0.mtx")) samples = 10
-    
-  SUITE["FULL"]["LDL"][p] = @benchmarkable ldl($A) samples = 10
-  SUITE["UPPER"]["LDL"][p] = @benchmarkable ldl($A_upper, upper = $true) samples = 10
+for subdir ∈ subdirs
+  subdir == ".git" && continue
+  isdir(joinpath(sqd_path, subdir)) || continue  # ignore regular files
+  for formulation ∈ formulations
+    for iter ∈ iters
+      iterpath = joinpath(sqd_path, subdir, formulation, "iter_$(iter)")
+      isdir(iterpath) || continue
+      name = "$(subdir)_$(formulation)_$(iter)"
+      A = MatrixMarket.mmread(joinpath(iterpath, "K_$(iter).mtx"))
+      b = readdlm(joinpath(iterpath, "rhs_$(iter).rhs"), Float64)[:]
+      n = size(A, 1)
+      L = tril(A, -1)
+      D = diag(A)
+      P = collect(1:n)
+      SUITE["LLDL"][name] = @benchmarkable lldl($L, $D, $P)
+      lldlt = lldl(L, D, P)
+      y = similar(b)
+      SUITE["LDIV"][name] = @benchmarkable ldiv!($y, $lldlt, $b)
+    end
+  end
 end
