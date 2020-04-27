@@ -28,7 +28,17 @@ judgement = judge("LimitedLDLFactorizations", "master")
 export_markdown("judgement.md", judgement)
 ```
 
-## Uploading the markdown to a Gist
+## Profiling BenchmarkResults and BenchmarkJudgement
+
+```julia
+using SolverBenchmark
+p_results   = profile_solvers(results)
+p_judgement = profile_package(judgement)
+```
+
+## Uploading benchmark results and performance profiles
+
+The environment variable **GITHUB_AUTH** (ENV["GITHUB_AUTH"] in Julia) must contain your personal access token that allows to create gists.
 
 ```julia
 using GitHub, JSON, PkgBenchmark
@@ -48,4 +58,10 @@ gist_json = JSON.parse(
 myauth = authenticate(ENV["GITHUB_AUTH"])
 posted_gist = create_gist(params = gist_json, auth = myauth)
 println(posted_gist.html_url)
+```
+
+```julia
+using SolverBenchmark
+to_gist(results, p_results)
+to_gist(judgement, p_judgement)
 ```
