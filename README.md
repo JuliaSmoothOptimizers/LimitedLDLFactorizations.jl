@@ -1,9 +1,8 @@
 # Limited-Memory LDLᵀ Factorization
 
-[![Build Status](https://travis-ci.org/JuliaSmoothOptimizers/LimitedLDLFactorizations.jl.svg?branch=master)](https://travis-ci.org/JuliaSmoothOptimizers/LimitedLDLFactorizations.jl)
-[![Build status](https://ci.appveyor.com/api/projects/status/uayusnq2flht8m80/branch/master?svg=true)](https://ci.appveyor.com/project/dpo/limitedldlfactorizations-jl/branch/master)
+![CI](https://github.com/JuliaSmoothOptimizers/LimitedLDLFactorizations.jl/workflows/CI/badge.svg?branch=master)
 [![Build Status](https://api.cirrus-ci.com/github/JuliaSmoothOptimizers/LimitedLDLFactorizations.jl.svg)](https://cirrus-ci.com/github/JuliaSmoothOptimizers/LimitedLDLFactorizations.jl)
-[![Coverage Status](https://coveralls.io/repos/github/JuliaSmoothOptimizers/LimitedLDLFactorizations.jl/badge.svg?branch=master)](https://coveralls.io/github/JuliaSmoothOptimizers/LimitedLDLFactorizations.jl?branch=master)
+[![codecov](https://codecov.io/gh/JuliaSmoothOptimizers/LimitedLDLFactorizations.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/JuliaSmoothOptimizers/LimitedLDLFactorizations.jl)
 
 A Port of LLDL to Julia.
 See https://github.com/optimizers/lldl.
