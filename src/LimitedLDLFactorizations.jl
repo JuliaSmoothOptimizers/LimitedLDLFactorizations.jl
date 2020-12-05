@@ -21,7 +21,7 @@ The modified version is described in [3,4].
 """
 module LimitedLDLFactorizations
 
-export lldl, \, ldiv!, nnz
+export lldl, \, ldiv!, nnz, LimitedLDLFactorization
 
 using AMD, LinearAlgebra, SparseArrays
 
