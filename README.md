@@ -1,11 +1,14 @@
 # Limited-Memory LDLᵀ Factorization
 
+[![DOI](https://zenodo.org/badge/98065377.svg)](https://zenodo.org/badge/latestdoi/98065377)
 ![CI](https://github.com/JuliaSmoothOptimizers/LimitedLDLFactorizations.jl/workflows/CI/badge.svg?branch=master)
 [![Build Status](https://api.cirrus-ci.com/github/JuliaSmoothOptimizers/LimitedLDLFactorizations.jl.svg)](https://cirrus-ci.com/github/JuliaSmoothOptimizers/LimitedLDLFactorizations.jl)
 [![codecov](https://codecov.io/gh/JuliaSmoothOptimizers/LimitedLDLFactorizations.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/JuliaSmoothOptimizers/LimitedLDLFactorizations.jl)
 
 A Port of LLDL to Julia.
 See https://github.com/optimizers/lldl.
+
+Please cite this repository if you use LimitedLDLFactorizations.jl in your work: see [`CITATION.bib`](https://github.com/JuliaSmoothOptimizers/LimitedLDLFactorizations.jl/blob/master/CITATION.bib).
 
 LimitedLDLFactorizations is a limited-memory LDLᵀ factorization for symmetric matrices.
 Given a symmetric matrix A, we search for a unit lower triangular L, a
