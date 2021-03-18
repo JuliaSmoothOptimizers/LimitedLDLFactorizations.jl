@@ -28,7 +28,7 @@ using AMD, LinearAlgebra, SparseArrays
 mutable struct LimitedLDLFactorization{T<:Real,Ti<:Integer}
   L::SparseMatrixCSC{T,Ti}
   D::Vector{T}
-  P::Vector{<:Integer}
+  P
   α::T
 end
 
@@ -58,7 +58,7 @@ function lldl(A::SparseMatrixCSC{Tv,Ti}; kwargs...) where {Tv<:Number, Ti<:Integ
   lldl(tril(A, -1), diag(A), amd(A); kwargs...)
 end
 
-function lldl(A::SparseMatrixCSC{Tv,Ti}, P::Vector{<:Integer}; kwargs...) where {Tv<:Number, Ti<:Integer}
+function lldl(A::SparseMatrixCSC{Tv,Ti}, P::AbstractVector{<:Integer}; kwargs...) where {Tv<:Number, Ti<:Integer}
   lldl(tril(A, -1), diag(A), P; kwargs...)
 end
 
@@ -72,7 +72,7 @@ end
 # Here T is the strict lower triangle of A.
 function lldl(T::SparseMatrixCSC{Tv,Ti},
               adiag::AbstractVector{Tv},
-              P::Vector{<:Integer};
+              P::AbstractVector{<:Integer};
               memory::Int=0,
               α::Tv=Tv(0),
               droptol::Tv=Tv(0)) where {Tv<:Number, Ti<:Integer}
