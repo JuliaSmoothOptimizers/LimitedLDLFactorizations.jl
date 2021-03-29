@@ -53,7 +53,6 @@ Compute the limited-memory LDLᵀ factorization of A without pivoting.
 - `droptol::Tv=Tv(0)`: to further sparsify `L`, all elements with magnitude smaller
                        than `droptol` are dropped.
 """
-
 function lldl(A::SparseMatrixCSC{Tv,Ti}; kwargs...) where {Tv<:Number, Ti<:Integer}
   lldl(tril(A, -1), diag(A), amd(A); kwargs...)
 end
