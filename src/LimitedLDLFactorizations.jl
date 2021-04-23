@@ -25,14 +25,14 @@ export lldl, \, ldiv!, nnz, LimitedLDLFactorization
 
 using AMD, LinearAlgebra, SparseArrays
 
-mutable struct LimitedLDLFactorization{T<:Real,Ti<:Integer}
-  L::SparseMatrixCSC{T,Ti}
+mutable struct LimitedLDLFactorization{T <: Real, Ti <: Integer}
+  L::SparseMatrixCSC{T, Ti}
   D::Vector{T}
   P
   α::T
 end
 
-lldl(A::Array{Tv,2}; kwargs...) where Tv<:Number = lldl(sparse(A); kwargs...)
+lldl(A::Array{Tv, 2}; kwargs...) where {Tv <: Number} = lldl(sparse(A); kwargs...)
 
 """
     lldl(A)
@@ -53,29 +53,38 @@ Compute the limited-memory LDLᵀ factorization of A without pivoting.
 - `droptol::Tv=Tv(0)`: to further sparsify `L`, all elements with magnitude smaller
                        than `droptol` are dropped.
 """
-function lldl(A::SparseMatrixCSC{Tv,Ti}; kwargs...) where {Tv<:Number, Ti<:Integer}
+function lldl(A::SparseMatrixCSC{Tv, Ti}; kwargs...) where {Tv <: Number, Ti <: Integer}
   lldl(tril(A, -1), diag(A), amd(A); kwargs...)
 end
 
-function lldl(A::SparseMatrixCSC{Tv,Ti}, P::AbstractVector{<:Integer}; kwargs...) where {Tv<:Number, Ti<:Integer}
+function lldl(
+  A::SparseMatrixCSC{Tv, Ti},
+  P::AbstractVector{<:Integer};
+  kwargs...,
+) where {Tv <: Number, Ti <: Integer}
   lldl(tril(A, -1), diag(A), P; kwargs...)
 end
 
 # symmetric matrix input
-function lldl(sA::Symmetric{T,SparseMatrixCSC{T,Ti}}, args...; kwargs...) where {T<:Real,Ti<:Integer}
+function lldl(
+  sA::Symmetric{T, SparseMatrixCSC{T, Ti}},
+  args...;
+  kwargs...,
+) where {T <: Real, Ti <: Integer}
   sA.uplo == 'U' && error("matrix must contain the lower triangle")
   A = sA.data
   lldl(A, args...; kwargs...)
 end
 
 # Here T is the strict lower triangle of A.
-function lldl(T::SparseMatrixCSC{Tv,Ti},
-              adiag::AbstractVector{Tv},
-              P::AbstractVector{<:Integer};
-              memory::Int=0,
-              α::Tv=Tv(0),
-              droptol::Tv=Tv(0)) where {Tv<:Number, Ti<:Integer}
-
+function lldl(
+  T::SparseMatrixCSC{Tv, Ti},
+  adiag::AbstractVector{Tv},
+  P::AbstractVector{<:Integer};
+  memory::Int = 0,
+  α::Tv = Tv(0),
+  droptol::Tv = Tv(0),
+) where {Tv <: Number, Ti <: Integer}
   memory < 0 && error("limited-memory parameter must be nonnegative")
   n = size(T, 1)
   n != size(T, 2) && error("input matrix must be square")
@@ -86,7 +95,7 @@ function lldl(T::SparseMatrixCSC{Tv,Ti},
 
   Pinv = similar(P)
   # Compute inverse permutation
-  @inbounds for k = 1 : n
+  @inbounds for k = 1:n
     Pinv[P[k]] = k
   end
 
@@ -95,15 +104,15 @@ function lldl(T::SparseMatrixCSC{Tv,Ti},
   d = Vector{Tv}(undef, n)  # Diagonal matrix D.
   lvals = Vector{Tv}(undef, nnzLmax)  # Strict lower triangle of L.
   rowind = Vector{Ti}(undef, nnzLmax)
-  colptr = Vector{Ti}(undef, n+1)
+  colptr = Vector{Ti}(undef, n + 1)
 
   # Compute the 2-norm of columns of A
   # and the diagonal scaling matrix.
   wa1 = zeros(Tv, n)
   s = Vector{Tv}(undef, n)
-  @inbounds @simd for col = 1 : n
+  @inbounds @simd for col = 1:n
     s[col] = Tv(1) # Initialization
-    @inbounds @simd for k = T.colptr[col] : T.colptr[col+1] - 1
+    @inbounds @simd for k = T.colptr[col]:(T.colptr[col + 1] - 1)
       val = T.nzval[k]
       val2 = val * val
       wa1[Pinv[col]] += val2  # Contribution to column Pinv[col].
@@ -111,7 +120,7 @@ function lldl(T::SparseMatrixCSC{Tv,Ti},
     end
   end
 
-  @inbounds @simd for col = 1 : n
+  @inbounds @simd for col = 1:n
     dpcol = adiag[P[col]]
     wa1[col] += dpcol * dpcol
     wa1[col] = sqrt(wa1[col])
@@ -146,16 +155,16 @@ function lldl(T::SparseMatrixCSC{Tv,Ti},
     # Copy the sparsity structure of A into L.
     # We use indr as a work array to save memory
     fill!(indr, 0)
-    @inbounds for col = 1 : n
-      @inbounds for k = T.colptr[col] : T.colptr[col+1]-1
+    @inbounds for col = 1:n
+      @inbounds for k = T.colptr[col]:(T.colptr[col + 1] - 1)
         row = Pinv[T.rowval[k]]
         indr[min(row, Pinv[col])] += 1
       end
     end
     # cumulative sum
     colptr[1] = 1
-    @inbounds for col = 1 : n
-      colptr[col+1] = indr[col] + colptr[col]
+    @inbounds for col = 1:n
+      colptr[col + 1] = indr[col] + colptr[col]
       indr[col] = colptr[col]
     end
 
@@ -165,16 +174,16 @@ function lldl(T::SparseMatrixCSC{Tv,Ti},
     # at every attempt, at the price of introducing small errors
     # every time.
 
-    @inbounds for col = 1 : n
+    @inbounds for col = 1:n
       pinvcol = Pinv[col]
       scol = s[pinvcol]
       d[pinvcol] = adiag[col] * scol * scol
-      @inbounds for k = T.colptr[col] : T.colptr[col+1]-1
+      @inbounds for k = T.colptr[col]:(T.colptr[col + 1] - 1)
         row = Pinv[T.rowval[k]]
-        q = indr[min(row,pinvcol)]
-        rowind[q] = max(row,pinvcol)
-        lvals[q] = T.nzval[k]*scol*s[row]
-        indr[min(row,pinvcol)] += 1
+        q = indr[min(row, pinvcol)]
+        rowind[q] = max(row, pinvcol)
+        lvals[q] = T.nzval[k] * scol * s[row]
+        indr[min(row, pinvcol)] += 1
       end
     end
 
@@ -186,7 +195,19 @@ function lldl(T::SparseMatrixCSC{Tv,Ti},
     end
 
     # Attempt a factorization.
-    factorized = attempt_lldl!(nnzT, d, lvals, rowind, colptr, w, indr, indf, list, memory=memory, droptol=droptol)
+    factorized = attempt_lldl!(
+      nnzT,
+      d,
+      lvals,
+      rowind,
+      colptr,
+      w,
+      indr,
+      indf,
+      list,
+      memory = memory,
+      droptol = droptol,
+    )
 
     # Increase shift if the factorization didn't succeed.
     if !factorized
@@ -197,35 +218,41 @@ function lldl(T::SparseMatrixCSC{Tv,Ti},
   end
 
   # Unscale L.
-  @inbounds @simd for col = 1 : n
+  @inbounds @simd for col = 1:n
     scol = s[col]
     d[col] /= scol * scol
-    @inbounds @simd for k = colptr[col] : colptr[col+1] - 1
+    @inbounds @simd for k = colptr[col]:(colptr[col + 1] - 1)
       lvals[k] *= scol / s[rowind[k]]
     end
   end
 
-  L = SparseMatrixCSC{Tv,Ti}(n, n, colptr, rowind, lvals)
+  L = SparseMatrixCSC{Tv, Ti}(n, n, colptr, rowind, lvals)
   return LimitedLDLFactorization(L, d, P, α)
 end
 
-function attempt_lldl!(nnzT::Int, d::Vector{Tv}, lvals::Vector{Tv},
-                       rowind::Vector{Ti}, colptr::Vector{Ti},
-                       w::Vector{Tv}, indr::Vector{Ti},
-                       indf::Vector{Ti}, list::Vector{Ti};
-                       memory::Int=0,
-                       droptol::Tv=Tv(0)) where {Ti<:Integer, Tv<:Number}
-
+function attempt_lldl!(
+  nnzT::Int,
+  d::Vector{Tv},
+  lvals::Vector{Tv},
+  rowind::Vector{Ti},
+  colptr::Vector{Ti},
+  w::Vector{Tv},
+  indr::Vector{Ti},
+  indf::Vector{Ti},
+  list::Vector{Ti};
+  memory::Int = 0,
+  droptol::Tv = Tv(0),
+) where {Ti <: Integer, Tv <: Number}
   n = size(d, 1)
   np = n * memory
   droptol = max(0, droptol)
 
   # Make room for L.
-  @inbounds @simd for col = 1 : n+1
+  @inbounds @simd for col = 1:(n + 1)
     colptr[col] += np
   end
 
-  @inbounds @simd for k = nnzT : -1 : 1
+  @inbounds @simd for k = nnzT:-1:1
     rowind[np + k] = rowind[k]
     lvals[np + k] = lvals[k]
   end
@@ -235,7 +262,7 @@ function attempt_lldl!(nnzT::Int, d::Vector{Tv}, lvals::Vector{Tv},
   colptr[1] = 1
 
   # Scan each column in turn.
-  for col = 1 : n
+  for col = 1:n
 
     # The factorization fails if the current pivot is zero.
     dcol = d[col]
@@ -244,7 +271,7 @@ function attempt_lldl!(nnzT::Int, d::Vector{Tv}, lvals::Vector{Tv},
     # Load column col of A into w.
     col_end = colptr[col + 1] - 1
     nzcol = 0
-    @inbounds for k = col_start : col_end
+    @inbounds for k = col_start:col_end
       row = rowind[k]
       w[row] = lvals[k]  # w[row] = A[row, col] for each col in turn.
       nzcol += 1
@@ -276,7 +303,7 @@ function attempt_lldl!(nnzT::Int, d::Vector{Tv}, lvals::Vector{Tv},
       end
 
       # Perform the update L[row, col] <- L[row, col] - D[k, k] * L[col, k] * L[row, k].
-      @inbounds for i = kth_col_start : kth_col_end
+      @inbounds for i = kth_col_start:kth_col_end
         row = rowind[i]
         dli = dl * lvals[i]
         if indf[row] != 0
@@ -293,7 +320,7 @@ function attempt_lldl!(nnzT::Int, d::Vector{Tv}, lvals::Vector{Tv},
     end
 
     # Compute (incomplete) column col of L.
-    @inbounds @simd for k = 1 : nzcol
+    @inbounds @simd for k = 1:nzcol
       w[indr[k]] /= dcol
       # d[row] -= d[col] * w[row] * w[row];  # Variant I.
     end
@@ -315,7 +342,7 @@ function attempt_lldl!(nnzT::Int, d::Vector{Tv}, lvals::Vector{Tv},
     new_col_start = colptr[col]
     new_col_end = new_col_start + nz_to_keep - 1
     l = new_col_start
-    @inbounds @simd for k = new_col_start : new_col_end
+    @inbounds @simd for k = new_col_start:new_col_end
       k1 = indr[kth + k - new_col_start]
       val = w[k1]
       # record element unless it should be dropped
@@ -328,7 +355,7 @@ function attempt_lldl!(nnzT::Int, d::Vector{Tv}, lvals::Vector{Tv},
     new_col_end = l - 1
 
     # Variant II of diagonal elements update.
-    @inbounds @simd for k = kth : nzcol
+    @inbounds @simd for k = kth:nzcol
       k1 = indr[k]
       wk1 = w[k1]
       d[k1] -= dcol * wk1 * wk1
@@ -341,7 +368,7 @@ function attempt_lldl!(nnzT::Int, d::Vector{Tv}, lvals::Vector{Tv},
       list[row1] = col
     end
 
-    @inbounds @simd for k = 1 : nzcol
+    @inbounds @simd for k = 1:nzcol
       indf[indr[k]] = 0
     end
     col_start = colptr[col + 1]
@@ -351,7 +378,6 @@ function attempt_lldl!(nnzT::Int, d::Vector{Tv}, lvals::Vector{Tv},
   return true
 end
 
-
 """Permute the elements of `keys` in place so that
     abs(x[keys[i]]) ≤ abs(x[keys[k]])  for i = 1, ..., k
     abs(x[keys[k]]) ≤ abs(x[keys[i]])  for i = k, ..., n,
@@ -359,8 +385,11 @@ where `n` is the length of `keys`. The length of `x` should be
 at least `n`. Only `keys` is modified.
 From the MINPACK2 function `dsel2` by Kastak, Lin and Moré.
 """
-function abspermute!(x::Vector{Tv}, keys::AbstractVector{Ti}, k::Ti) where {Tv<:Number, Ti<:Integer}
-
+function abspermute!(
+  x::Vector{Tv},
+  keys::AbstractVector{Ti},
+  k::Ti,
+) where {Tv <: Number, Ti <: Integer}
   n = size(keys, 1)
   (n <= 1 || k < 1 || k > n) && return
 
@@ -370,7 +399,7 @@ function abspermute!(x::Vector{Tv}, keys::AbstractVector{Ti}, k::Ti) where {Tv<:
   lp = Ti(2 * n)
 
   while l < u
-    p1 = div(u + 3 * l,  4)
+    p1 = div(u + 3 * l, 4)
     p2 = div(u + l, 2)
     p3 = div(3 * u + l, 4)
 
@@ -426,7 +455,7 @@ function abspermute!(x::Vector{Tv}, keys::AbstractVector{Ti}, k::Ti) where {Tv<:
 
     m = l
     absxl = abs(x[keys[l]])
-    @inbounds for i = l + 1 : u
+    @inbounds for i = (l + 1):u
       if abs(x[keys[i]]) < absxl
         m = m + 1
         swap = keys[m]
@@ -445,7 +474,7 @@ function abspermute!(x::Vector{Tv}, keys::AbstractVector{Ti}, k::Ti) where {Tv<:
     if (3 * (u - l) > 2 * lp) && (k > m)
       p = m
       absxm = abs(x[keys[m]])
-      @inbounds for i = m + 1 : u
+      @inbounds for i = (m + 1):u
         if abs(x[keys[i]]) == absxm
           p = p + 1
           swap = keys[p]
@@ -466,7 +495,7 @@ end
 function lldl_lsolve!(n, x, Lp, Li, Lx)
   @inbounds for j = 1:n
     xj = x[j]
-    @inbounds for p = Lp[j] : (Lp[j+1] - 1)
+    @inbounds for p = Lp[j]:(Lp[j + 1] - 1)
       x[Li[p]] -= Lx[p] * xj
     end
   end
@@ -483,7 +512,7 @@ end
 function lldl_ltsolve!(n, x, Lp, Li, Lx)
   @inbounds for j = n:-1:1
     xj = x[j]
-    @inbounds for p = Lp[j] : (Lp[j+1] - 1)
+    @inbounds for p = Lp[j]:(Lp[j + 1] - 1)
       xj -= Lx[p] * x[Li[p]]
     end
     x[j] = xj
@@ -500,21 +529,32 @@ function lldl_solve!(n, b, Lp, Li, Lx, D, P)
 end
 
 import Base.(\)
-function (\)(LLDL::LimitedLDLFactorization{T,Ti}, b::AbstractVector{T}) where {T<:Real,Ti<:Integer}
+function (\)(
+  LLDL::LimitedLDLFactorization{T, Ti},
+  b::AbstractVector{T},
+) where {T <: Real, Ti <: Integer}
   y = copy(b)
   lldl_solve!(LLDL.L.n, y, LLDL.L.colptr, LLDL.L.rowval, LLDL.L.nzval, LLDL.D, LLDL.P)
 end
 
 import LinearAlgebra.ldiv!
-@inline ldiv!(LLDL::LimitedLDLFactorization{T,Ti}, b::AbstractVector{T}) where {T<:Real,Ti<:Integer} =
+@inline ldiv!(
+  LLDL::LimitedLDLFactorization{T, Ti},
+  b::AbstractVector{T},
+) where {T <: Real, Ti <: Integer} =
   lldl_solve!(LLDL.L.n, b, LLDL.L.colptr, LLDL.L.rowval, LLDL.L.nzval, LLDL.D, LLDL.P)
 
-function ldiv!(y::AbstractVector{T}, LLDL::LimitedLDLFactorization{T,Ti}, b::AbstractVector{T}) where {T<:Real,Ti<:Integer}
+function ldiv!(
+  y::AbstractVector{T},
+  LLDL::LimitedLDLFactorization{T, Ti},
+  b::AbstractVector{T},
+) where {T <: Real, Ti <: Integer}
   y .= b
   lldl_solve!(LLDL.L.n, y, LLDL.L.colptr, LLDL.L.rowval, LLDL.L.nzval, LLDL.D, LLDL.P)
 end
 
 import SparseArrays.nnz
-@inline nnz(LLDL::LimitedLDLFactorization{T,Ti}) where {T<:Real,Ti<:Integer} = nnz(LLDL.L) + length(LLDL.D)
+@inline nnz(LLDL::LimitedLDLFactorization{T, Ti}) where {T <: Real, Ti <: Integer} =
+  nnz(LLDL.L) + length(LLDL.D)
 
 end  # Module.
