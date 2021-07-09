@@ -20,11 +20,11 @@ export_markdown("results.md", results)
 
 ## Comparing two commits
 
-To compare against the `master` branch
+To compare against the `main` branch
 ```julia
 using PkgBenchmark
 import LimitedLDLFactorizations
-judgement = judge("LimitedLDLFactorizations", "master")
+judgement = judge("LimitedLDLFactorizations", "main")
 export_markdown("judgement.md", judgement)
 ```
 
