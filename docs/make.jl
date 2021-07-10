@@ -13,4 +13,4 @@ makedocs(
   pages = Any["Home" => "index.md", "Tutorial" => "tutorial.md", "Reference" => "reference.md"],
 )
 
-deploydocs(repo = "github.com/JuliaSmoothOptimizers/LimitedLDLFactorizations.jl.git")
+deploydocs(repo = "github.com/JuliaSmoothOptimizers/LimitedLDLFactorizations.jl.git", devbranch = "main")
