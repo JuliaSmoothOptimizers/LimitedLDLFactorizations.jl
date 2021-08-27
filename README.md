@@ -5,7 +5,7 @@
 [![Build Status](https://api.cirrus-ci.com/github/JuliaSmoothOptimizers/LimitedLDLFactorizations.jl.svg)](https://cirrus-ci.com/github/JuliaSmoothOptimizers/LimitedLDLFactorizations.jl)
 [![codecov](https://codecov.io/gh/JuliaSmoothOptimizers/LimitedLDLFactorizations.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/JuliaSmoothOptimizers/LimitedLDLFactorizations.jl)
 [![Documentation/stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://JuliaSmoothOptimizers.github.io/LimitedLDLFactorizations.jl/stable)
-[![Documentation/dev](https://img.shields.io/badge/docs-latest-blue.svg)](https://JuliaSmoothOptimizers.github.io/LimitedLDLFactorizations.jl/latest)
+[![Documentation/dev](https://img.shields.io/badge/docs-latest-blue.svg)](https://JuliaSmoothOptimizers.github.io/LimitedLDLFactorizations.jl/dev)
 
 A Port of LLDL to Julia.
 See https://github.com/optimizers/lldl.
