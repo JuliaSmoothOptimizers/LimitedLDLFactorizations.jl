@@ -132,3 +132,22 @@ end
   @test LLDL.D[1] > 0
   @test LLDL.D[2] < 0
 end
+
+@testset "with int32 indices" begin
+  A = [
+    1.7 0 0 0 0 0 0 0 0.13 0
+    0 1.0 0 0 0.02 0 0 0 0 0.01
+    0 0 1.5 0 0 0 0 0 0 0
+    0 0 0 1.1 0 0 0 0 0 0
+    0 0.02 0 0 2.6 0 0.16 0.09 0.52 0.53
+    0 0 0 0 0 1.2 0 0 0 0
+    0 0 0 0 0.16 0 1.3 0 0 0.56
+    0 0 0 0 0.09 0 0 1.6 0.11 0
+    0.13 0 0 0 0.52 0 0 0.11 1.4 0
+    0 0.01 0 0 0.53 0 0.56 0 0 3.1
+  ]
+  A = convert(SparseMatrixCSC{Float64,Int32}, sparse(A))
+  LLDL = lldl(A, memory = 5)
+  @test LLDL.α == 0
+end
+

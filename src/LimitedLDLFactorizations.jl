@@ -158,11 +158,11 @@ function lldl(
     @inbounds for col = 1:n
       @inbounds for k = T.colptr[col]:(T.colptr[col + 1] - 1)
         row = Pinv[T.rowval[k]]
-        indr[min(row, Pinv[col])] += 1
+        indr[min(row, Pinv[col])] += one(Ti)
       end
     end
     # cumulative sum
-    colptr[1] = 1
+    colptr[1] = one(Ti)
     @inbounds for col = 1:n
       colptr[col + 1] = indr[col] + colptr[col]
       indr[col] = colptr[col]
@@ -183,7 +183,7 @@ function lldl(
         q = indr[min(row, pinvcol)]
         rowind[q] = max(row, pinvcol)
         lvals[q] = T.nzval[k] * scol * s[row]
-        indr[min(row, pinvcol)] += 1
+        indr[min(row, pinvcol)] += one(Ti)
       end
     end
 
@@ -205,7 +205,7 @@ function lldl(
       indr,
       indf,
       list,
-      memory = memory,
+      memory = Ti(memory),
       droptol = droptol,
     )
 
@@ -240,7 +240,7 @@ function attempt_lldl!(
   indr::Vector{Ti},
   indf::Vector{Ti},
   list::Vector{Ti};
-  memory::Int = 0,
+  memory::Ti= 0,
   droptol::Tv = Tv(0),
 ) where {Ti <: Integer, Tv <: Number}
   n = size(d, 1)
@@ -269,12 +269,12 @@ function attempt_lldl!(
     dcol == 0 && return false
 
     # Load column col of A into w.
-    col_end = colptr[col + 1] - 1
-    nzcol = 0
+    col_end = colptr[col + 1] - one(Ti)
+    nzcol = zero(Ti)
     @inbounds for k = col_start:col_end
       row = rowind[k]
       w[row] = lvals[k]  # w[row] = A[row, col] for each col in turn.
-      nzcol += 1
+      nzcol += one(Ti)
       indr[nzcol] = row
       indf[row] = 1
     end
@@ -325,8 +325,8 @@ function attempt_lldl!(
       # d[row] -= d[col] * w[row] * w[row];  # Variant I.
     end
 
-    nz_to_keep = min(col_end - col_start + 1 + memory, nzcol)
-    kth = nzcol - nz_to_keep + 1
+    nz_to_keep = min(col_end - col_start + one(Ti) + memory, nzcol)
+    kth = nzcol - nz_to_keep + one(Ti)
 
     if nzcol ≥ 1
       # Determine the kth smallest elements in current column
@@ -336,11 +336,11 @@ function attempt_lldl!(
 
       # Sort the row indices of the nz_to_keep largest elements
       # so we can later retrieve L[i,k] from indf[k].
-      sort!(indr, kth, nzcol, nz_to_keep ≤ 50 ? InsertionSort : MergeSort, Base.Order.Forward)
+      sort!(indr, Int(kth), Int(nzcol), nz_to_keep ≤ 50 ? InsertionSort : MergeSort, Base.Order.Forward)
     end
 
     new_col_start = colptr[col]
-    new_col_end = new_col_start + nz_to_keep - 1
+    new_col_end = new_col_start + nz_to_keep - one(Ti)
     l = new_col_start
     @inbounds @simd for k = new_col_start:new_col_end
       k1 = indr[kth + k - new_col_start]
@@ -349,10 +349,10 @@ function attempt_lldl!(
       if abs(val) > droptol
         lvals[l] = val
         rowind[l] = k1
-        l += 1
+        l += one(Ti)
       end
     end
-    new_col_end = l - 1
+    new_col_end = l - one(Ti)
 
     # Variant II of diagonal elements update.
     @inbounds @simd for k = kth:nzcol
@@ -369,10 +369,10 @@ function attempt_lldl!(
     end
 
     @inbounds @simd for k = 1:nzcol
-      indf[indr[k]] = 0
+      indf[indr[k]] = zero(Ti)
     end
     col_start = colptr[col + 1]
-    colptr[col + 1] = new_col_end + 1
+    colptr[col + 1] = new_col_end + one(Ti)
   end
 
   return true
@@ -393,7 +393,7 @@ function abspermute!(
   n = size(keys, 1)
   (n <= 1 || k < 1 || k > n) && return
 
-  l = Ti(1)
+  l = one(Ti)
   u = Ti(n)
   lc = Ti(n)
   lp = Ti(2 * n)
@@ -457,7 +457,7 @@ function abspermute!(
     absxl = abs(x[keys[l]])
     @inbounds for i = (l + 1):u
       if abs(x[keys[i]]) < absxl
-        m = m + 1
+        m = m + one(Ti)
         swap = keys[m]
         keys[m] = keys[i]
         keys[i] = swap
@@ -468,23 +468,23 @@ function abspermute!(
     keys[l] = keys[m]
     keys[m] = swap
 
-    k ≥ m && (l = m + 1)
-    k ≤ m && (u = m - 1)
+    k ≥ m && (l = m + one(Ti))
+    k ≤ m && (u = m - one(Ti))
 
     if (3 * (u - l) > 2 * lp) && (k > m)
       p = m
       absxm = abs(x[keys[m]])
       @inbounds for i = (m + 1):u
         if abs(x[keys[i]]) == absxm
-          p = p + 1
+          p = p + one(Ti)
           swap = keys[p]
           keys[p] = keys[i]
           keys[i] = swap
         end
       end
 
-      l = p + 1
-      k ≤ p && (u = p - 1)
+      l = p + one(Ti)
+      k ≤ p && (u = p - one(Ti))
     end
 
     lp = lc
