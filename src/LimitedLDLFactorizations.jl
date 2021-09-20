@@ -240,7 +240,7 @@ function attempt_lldl!(
   indr::Vector{Ti},
   indf::Vector{Ti},
   list::Vector{Ti};
-  memory::Ti= 0,
+  memory::Ti = 0,
   droptol::Tv = Tv(0),
 ) where {Ti <: Integer, Tv <: Number}
   n = size(d, 1)
@@ -336,7 +336,13 @@ function attempt_lldl!(
 
       # Sort the row indices of the nz_to_keep largest elements
       # so we can later retrieve L[i,k] from indf[k].
-      sort!(indr, Int(kth), Int(nzcol), nz_to_keep ≤ 50 ? InsertionSort : MergeSort, Base.Order.Forward)
+      sort!(
+        indr,
+        Int(kth),
+        Int(nzcol),
+        nz_to_keep ≤ 50 ? InsertionSort : MergeSort,
+        Base.Order.Forward,
+      )
     end
 
     new_col_start = colptr[col]

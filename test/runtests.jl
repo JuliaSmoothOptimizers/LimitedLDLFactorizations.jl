@@ -146,8 +146,7 @@ end
     0.13 0 0 0 0.52 0 0 0.11 1.4 0
     0 0.01 0 0 0.53 0 0.56 0 0 3.1
   ]
-  A = convert(SparseMatrixCSC{Float64,Int32}, sparse(A))
+  A = convert(SparseMatrixCSC{Float64, Int32}, sparse(A))
   LLDL = lldl(A, memory = 5)
   @test LLDL.α == 0
 end
-
