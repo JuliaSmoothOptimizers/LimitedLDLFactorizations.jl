@@ -259,7 +259,7 @@ function attempt_lldl!(
 
   # Attempt an incomplete LDL factorization.
   col_start = colptr[1]
-  colptr[1] = 1
+  colptr[1] = one(Ti)
 
   # Scan each column in turn.
   for col = 1:n
@@ -276,7 +276,7 @@ function attempt_lldl!(
       w[row] = lvals[k]  # w[row] = A[row, col] for each col in turn.
       nzcol += one(Ti)
       indr[nzcol] = row
-      indf[row] = 1
+      indf[row] = one(Ti)
     end
 
     # nzcol = number of nonzeros in current column.
@@ -289,12 +289,12 @@ function attempt_lldl!(
 
     while k != 0
       kth_col_start = indf[k]
-      kth_col_end = colptr[k + 1] - 1
+      kth_col_end = colptr[k + 1] - one(Ti)
       lval = lvals[kth_col_start]  # lval = L[col, k].
       dl = -d[k] * lval
 
       newk = list[k]
-      kth_col_start += 1
+      kth_col_start += one(Ti)
       if kth_col_start < kth_col_end
         row = rowind[kth_col_start]
         indf[k] = kth_col_start
@@ -309,8 +309,8 @@ function attempt_lldl!(
         if indf[row] != 0
           w[row] += dli  # w[row] = L[row, col], lval = L[col, k], lvals[i] = L[row, k].
         else
-          indf[row] = 1
-          nzcol += 1
+          indf[row] = one(Ti)
+          nzcol += one(Ti)
           indr[nzcol] = row
           w[row] = dli
         end
