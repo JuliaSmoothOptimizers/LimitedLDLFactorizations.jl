@@ -338,8 +338,8 @@ function attempt_lldl!(
       # so we can later retrieve L[i,k] from indf[k].
       sort!(
         indr,
-        Int(kth),
-        Int(nzcol),
+        kth,
+        nzcol,
         nz_to_keep ≤ 50 ? InsertionSort : MergeSort,
         Base.Order.Forward,
       )
