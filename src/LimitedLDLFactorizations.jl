@@ -336,13 +336,7 @@ function attempt_lldl!(
 
       # Sort the row indices of the nz_to_keep largest elements
       # so we can later retrieve L[i,k] from indf[k].
-      sort!(
-        indr,
-        kth,
-        nzcol,
-        nz_to_keep ≤ 50 ? InsertionSort : MergeSort,
-        Base.Order.Forward,
-      )
+      sort!(indr, kth, nzcol, nz_to_keep ≤ 50 ? InsertionSort : MergeSort, Base.Order.Forward)
     end
 
     new_col_start = colptr[col]
