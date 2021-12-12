@@ -226,7 +226,8 @@ function lldl(
     end
   end
 
-  L = SparseMatrixCSC{Tv, Ti}(n, n, colptr, rowind, lvals)
+  nz = colptr[end] - 1
+  L = SparseMatrixCSC{Tv, Ti}(n, n, colptr, rowind[1:nz], lvals[1:nz])
   return LimitedLDLFactorization(L, d, P, α)
 end
 
