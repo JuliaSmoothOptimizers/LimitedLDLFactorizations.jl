@@ -52,6 +52,8 @@ Compute the limited-memory LDLᵀ factorization of A without pivoting.
                  gradually increased from this initial value until success.
 - `droptol::Tv=Tv(0)`: to further sparsify `L`, all elements with magnitude smaller
                        than `droptol` are dropped.
+- `β::Number=0`: Standard (0), Relaxed (0 < β < 1) or Modified (1) factorization.
+- `row_relax::Bool=true`: row or column relaxation switch.
 """
 function lldl(A::SparseMatrixCSC{Tv, Ti}; kwargs...) where {Tv <: Number, Ti <: Integer}
   lldl(tril(A, -1), diag(A), amd(A); kwargs...)
@@ -84,11 +86,14 @@ function lldl(
   memory::Int = 0,
   α::Tv = Tv(0),
   droptol::Tv = Tv(0),
+  β::Number = 0,
+  row_relax::Bool = true,
 ) where {Tv <: Number, Ti <: Integer}
   memory < 0 && error("limited-memory parameter must be nonnegative")
   n = size(T, 1)
   n != size(T, 2) && error("input matrix must be square")
   n != length(adiag) && error("inconsistent size of diagonal")
+  0 <= β <= 1 || error("invalid relaxation factor β=$β")
 
   nnzT = nnz(T)
   np = n * memory
@@ -202,11 +207,14 @@ function lldl(
       rowind,
       colptr,
       w,
+      wa1,  # scratch
       indr,
       indf,
-      list,
+      list;
       memory = Ti(memory),
       droptol = droptol,
+      β = Tv(β),
+      row_relax = row_relax,
     )
 
     # Increase shift if the factorization didn't succeed.
@@ -237,11 +245,14 @@ function attempt_lldl!(
   rowind::Vector{Ti},
   colptr::Vector{Ti},
   w::Vector{Tv},
+  wa1::Vector{Tv},
   indr::Vector{Ti},
   indf::Vector{Ti},
   list::Vector{Ti};
   memory::Ti = 0,
   droptol::Tv = Tv(0),
+  β::Tv = Tv(0),
+  row_relax::Bool = true,
 ) where {Ti <: Integer, Tv <: Number}
   n = size(d, 1)
   np = n * memory
@@ -342,6 +353,7 @@ function attempt_lldl!(
     new_col_start = colptr[col]
     new_col_end = new_col_start + nz_to_keep - one(Ti)
     l = new_col_start
+    fill!(wa1, 0)
     @inbounds @simd for k = new_col_start:new_col_end
       k1 = indr[kth + k - new_col_start]
       val = w[k1]
@@ -350,15 +362,23 @@ function attempt_lldl!(
         lvals[l] = val
         rowind[l] = k1
         l += one(Ti)
+      elseif β > 0
+        wa1[row_relax ? k1 : k] += val
       end
     end
     new_col_end = l - one(Ti)
 
     # Variant II of diagonal elements update.
-    @inbounds @simd for k = kth:nzcol
-      k1 = indr[k]
-      wk1 = w[k1]
-      d[k1] -= dcol * wk1 * wk1
+    if β > 0
+      @inbounds @simd for k = kth:nzcol
+        k1 = indr[k]
+        d[k1] -= dcol * w[k1]^2 + β * wa1[row_relax ? k1 : k]
+      end
+    else
+      @inbounds @simd for k = kth:nzcol
+        k1 = indr[k]
+        d[k1] -= dcol * w[k1]^2
+      end
     end
 
     if new_col_start < new_col_end
