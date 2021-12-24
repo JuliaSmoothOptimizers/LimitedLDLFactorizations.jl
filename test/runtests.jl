@@ -29,23 +29,25 @@ using AMD, Metis, LimitedLDLFactorizations
     @test nnzl5 ≥ nnzl0
     @test LLDL.α == 0
 
-    LLDL = lldl(A, perm, memory = 10)
-    @test nnz(LLDL) ≥ nnzl5
-    @test LLDL.α == 0
-    L = LLDL.L + I
-    @test norm(L * diagm(0 => LLDL.D) * L' - A[perm, perm]) ≤ sqrt(eps()) * norm(A)
+    for β ∈ (0., .5, 1.) 
+      LLDL = lldl(A, perm, memory = 10, β = β)
+      @test nnz(LLDL) ≥ nnzl5
+      @test LLDL.α == 0
+      L = LLDL.L + I
+      @test norm(L * diagm(0 => LLDL.D) * L' - A[perm, perm]) ≤ sqrt(eps()) * norm(A)
 
-    sol = ones(A.n)
-    b = A * sol
-    x = LLDL \ b
-    @test x ≈ sol
+      sol = ones(A.n)
+      b = A * sol
+      x = LLDL \ b
+      @test x ≈ sol
 
-    y = similar(b)
-    ldiv!(y, LLDL, b)
-    @test y ≈ sol
+      y = similar(b)
+      ldiv!(y, LLDL, b)
+      @test y ≈ sol
 
-    ldiv!(LLDL, b)
-    @test b ≈ sol
+      ldiv!(LLDL, b)
+      @test b ≈ sol
+    end
   end
 end
 
