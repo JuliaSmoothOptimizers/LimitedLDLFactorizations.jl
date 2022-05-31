@@ -25,11 +25,29 @@ export lldl, \, ldiv!, nnz, LimitedLDLFactorization
 
 using AMD, LinearAlgebra, SparseArrays
 
-mutable struct LimitedLDLFactorization{T <: Real, Ti <: Integer}
-  L::SparseMatrixCSC{T, Ti}
+mutable struct LimitedLDLFactorization{T <: Real, Ti <: Integer, V1 <: AbstractVector, V2 <: AbstractVector}
+  n::Int
+  colptr::Vector{Ti}
+  rowind::Vector{Ti}
+  Lrowind::SubArray{Ti, 1, Vector{Ti}, Tuple{UnitRange{Int}}, true}
+  lvals::Vector{T}
+  Lnzvals::SubArray{T, 1, Vector{T}, Tuple{UnitRange{Int}}, true}
+
   D::Vector{T}
-  P
+  P::V1
   α::T
+
+  memory::Int
+
+  Pinv::V2
+  wa1::Vector{T}
+  s::Vector{T}
+  w::Vector{T}
+  indr::Vector{Ti}
+  indf::Vector{Ti}
+  list::Vector{Ti}
+  pos::Vector{Ti}
+  neg::Vector{Ti}
 end
 
 lldl(A::Array{Tv, 2}; kwargs...) where {Tv <: Number} = lldl(sparse(A); kwargs...)
@@ -76,8 +94,63 @@ function lldl(
   lldl(A, args...; kwargs...)
 end
 
-# Here T is the strict lower triangle of A.
-function lldl(
+function LimitedLDLFactorization(
+  adiag::AbstractVector{Tv},
+  P::AbstractVector{<:Integer},
+  Ti::DataType,
+  memory::Int,
+  α::Tv,
+  n::Int,
+  nnzT::Int,
+) where {Tv <: Number}
+  np = n * memory
+  Pinv = similar(P)
+
+  # Make room to store L.
+  nnzLmax = nnzT + np
+  d = Vector{Tv}(undef, n)  # Diagonal matrix D.
+  lvals = Vector{Tv}(undef, nnzLmax)  # Strict lower triangle of L.
+  rowind = Vector{Ti}(undef, nnzLmax)
+  colptr = Vector{Ti}(undef, n + 1)
+  wa1 = Vector{Tv}(undef, n)
+  s = Vector{Tv}(undef, n)
+
+  w = Vector{Tv}(undef, n)     # contents of the current column of A.
+  indr = Vector{Ti}(undef, n)  # row indices of the nonzeros in the current column after it's been loaded into w.
+  indf = Vector{Ti}(undef, n)  # indf[col] = position in w of the next entry in column col to be used during the factorization.
+  list = zeros(Ti, n)  # list[col] = linked list of columns that will update column col.
+
+  pos = findall(adiag[P] .> Tv(0))
+  neg = findall(adiag[P] .≤ Tv(0))
+
+  nz = colptr[end] - 1
+  Lrowind = view(rowind, 1:nnzLmax)
+  Lnzvals = view(lvals, 1:nnzLmax)
+
+  return LimitedLDLFactorization(
+    n,
+    colptr,
+    rowind,
+    Lrowind,
+    lvals,
+    Lnzvals,
+    d,
+    P,
+    α,
+    memory,
+    Pinv,
+    wa1,
+    s,
+    w,
+    indr,
+    indf,
+    list,
+    pos,
+    neg,
+  )
+end
+
+function lldl_analyze(
   T::SparseMatrixCSC{Tv, Ti},
   adiag::AbstractVector{Tv},
   P::AbstractVector{<:Integer};
@@ -89,27 +162,55 @@ function lldl(
   n = size(T, 1)
   n != size(T, 2) && error("input matrix must be square")
   n != length(adiag) && error("inconsistent size of diagonal")
+  return LimitedLDLFactorization(
+    adiag,
+    P,
+    Ti,
+    memory,
+    α,
+    n,
+    nnz(T),
+  ) 
+end
+
+# Here T is the strict lower triangle of A.
+function lldl_factorize!(
+  T::SparseMatrixCSC{Tv, Ti},
+  adiag::AbstractVector{Tv},
+  S::LimitedLDLFactorization{Tv, Ti};
+  droptol::Tv = Tv(0),
+) where {Tv <: Number, Ti <: Integer}
+
+  n = size(T, 1)
+  n != size(T, 2) && error("input matrix must be square")
+  n != length(adiag) && error("inconsistent size of diagonal")
+
+  colptr = S.colptr
+  Lrowind = S.Lrowind
+  Lnzvals = S.Lnzvals
 
   nnzT = nnz(T)
+  memory = S.memory
   np = n * memory
+  α = S.α
 
-  Pinv = similar(P)
+  P = S.P
+  Pinv = S.Pinv
   # Compute inverse permutation
   @inbounds for k = 1:n
     Pinv[P[k]] = k
   end
 
-  # Make room to store L.
-  nnzLmax = nnzT + np
-  d = Vector{Tv}(undef, n)  # Diagonal matrix D.
-  lvals = Vector{Tv}(undef, nnzLmax)  # Strict lower triangle of L.
-  rowind = Vector{Ti}(undef, nnzLmax)
-  colptr = Vector{Ti}(undef, n + 1)
+  d = S.D  # Diagonal matrix D.
+  lvals = S.lvals  # Strict lower triangle of L.
+  rowind = S.rowind
+  colptr = S.colptr
 
   # Compute the 2-norm of columns of A
   # and the diagonal scaling matrix.
-  wa1 = zeros(Tv, n)
-  s = Vector{Tv}(undef, n)
+  wa1 = S.wa1
+  wa1 .= zero(Tv)
+  s = S.s
   @inbounds @simd for col = 1:n
     s[col] = Tv(1) # Initialization
     @inbounds @simd for k = T.colptr[col]:(T.colptr[col + 1] - 1)
@@ -142,13 +243,26 @@ function lldl(
   tired = false
 
   # Work arrays.
-  w = Vector{Tv}(undef, n)     # contents of the current column of A.
-  indr = Vector{Ti}(undef, n)  # row indices of the nonzeros in the current column after it's been loaded into w.
-  indf = Vector{Ti}(undef, n)  # indf[col] = position in w of the next entry in column col to be used during the factorization.
-  list = zeros(Ti, n)  # list[col] = linked list of columns that will update column col.
+  w = S.w    # contents of the current column of A.
+  indr = S.indr  # row indices of the nonzeros in the current column after it's been loaded into w.
+  indf = S.indf  # indf[col] = position in w of the next entry in column col to be used during the factorization.
+  list = S.list
+  list .= zero(Ti)  # list[col] = linked list of columns that will update column col.
 
-  pos = findall(adiag[P] .> Tv(0))
-  neg = findall(adiag[P] .≤ Tv(0))
+  pos = S.pos
+  neg = S.neg
+  cpos = 0
+  cneg = 0
+  for i=1:n
+    adiagPi = adiag[P[i]]
+    if adiagPi > Tv(0)
+      cpos += 1 
+      pos[cpos] = i
+    else
+      cneg += 1
+      neg[cneg] = i
+    end
+  end
 
   while !(factorized || tired)
 
@@ -226,9 +340,23 @@ function lldl(
     end
   end
 
+  S.α = α
   nz = colptr[end] - 1
-  L = SparseMatrixCSC{Tv, Ti}(n, n, colptr, rowind[1:nz], lvals[1:nz])
-  return LimitedLDLFactorization(L, d, P, α)
+  S.Lrowind = view(rowind, 1:nz)
+  S.Lnzvals = view(lvals, 1:nz)
+  return S
+end
+
+function lldl(
+  T::SparseMatrixCSC{Tv, Ti},
+  adiag::AbstractVector{Tv},
+  P::AbstractVector{<:Integer};
+  memory::Int = 0,
+  α::Tv = Tv(0),
+  droptol::Tv = Tv(0),
+) where {Tv <: Number, Ti <: Integer}
+  S = lldl_analyze(T, adiag, P; memory = memory, α = α, droptol = droptol)
+  lldl_factorize!(T, adiag, S, droptol = droptol)
 end
 
 function attempt_lldl!(
@@ -535,7 +663,7 @@ function (\)(
   b::AbstractVector{T},
 ) where {T <: Real, Ti <: Integer}
   y = copy(b)
-  lldl_solve!(LLDL.L.n, y, LLDL.L.colptr, LLDL.L.rowval, LLDL.L.nzval, LLDL.D, LLDL.P)
+  lldl_solve!(LLDL.n, y, LLDL.colptr, LLDL.Lrowind, LLDL.Lnzvals, LLDL.D, LLDL.P)
 end
 
 import LinearAlgebra.ldiv!
@@ -543,7 +671,7 @@ import LinearAlgebra.ldiv!
   LLDL::LimitedLDLFactorization{T, Ti},
   b::AbstractVector{T},
 ) where {T <: Real, Ti <: Integer} =
-  lldl_solve!(LLDL.L.n, b, LLDL.L.colptr, LLDL.L.rowval, LLDL.L.nzval, LLDL.D, LLDL.P)
+  lldl_solve!(LLDL.n, b, LLDL.colptr, LLDL.Lrowind, LLDL.Lnzvals, LLDL.D, LLDL.P)
 
 function ldiv!(
   y::AbstractVector{T},
@@ -551,11 +679,20 @@ function ldiv!(
   b::AbstractVector{T},
 ) where {T <: Real, Ti <: Integer}
   y .= b
-  lldl_solve!(LLDL.L.n, y, LLDL.L.colptr, LLDL.L.rowval, LLDL.L.nzval, LLDL.D, LLDL.P)
+  lldl_solve!(LLDL.n, y, LLDL.colptr, LLDL.Lrowind, LLDL.Lnzvals, LLDL.D, LLDL.P)
 end
 
 import SparseArrays.nnz
 @inline nnz(LLDL::LimitedLDLFactorization{T, Ti}) where {T <: Real, Ti <: Integer} =
-  nnz(LLDL.L) + length(LLDL.D)
+  length(LLDL.Lrowind) + length(LLDL.D)
+
+@inline function Base.getproperty(LLDL::LimitedLDLFactorization, prop::Symbol)
+  if prop == :L
+    nz = LLDL.colptr[end] - 1
+    return SparseMatrixCSC(LLDL.n, LLDL.n, LLDL.colptr, LLDL.Lrowind[1:nz], LLDL.Lnzvals[1:nz])
+  else
+    getfield(LLDL, prop)
+  end
+end
 
 end  # Module.
