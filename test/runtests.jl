@@ -115,6 +115,73 @@ end
   end
 end
 
+@testset "test in-place version" begin
+  # Lower triangle only
+  A = [
+    1.7 0 0 0 0 0 0 0 0.13 0
+    0 1.0 0 0 0.02 0 0 0 0 0.01
+    0 0 1.5 0 0 0 0 0 0 0
+    0 0 0 1.1 0 0 0 0 0 0
+    0 0.02 0 0 2.6 0 0.16 0.09 0.52 0.53
+    0 0 0 0 0 1.2 0 0 0 0
+    0 0 0 0 0.16 0 1.3 0 0 0.56
+    0 0 0 0 0.09 0 0 1.6 0.11 0
+    0.13 0 0 0 0.52 0 0 0.11 1.4 0
+    0 0.01 0 0 0.53 0 0.56 0 0 3.1
+  ]
+  A = sparse(A)
+  Alow, adiag = tril(A, -1), diag(A)
+  perm = amd(A)
+  LLDL = lldl_allocate(Alow, adiag, perm, memory = 10)
+  lldl_factorize!(Alow, adiag, LLDL)
+  @test LLDL.α == 0
+  L = LLDL.L + I
+  @test norm(L * diagm(0 => LLDL.D) * L' - A[perm, perm]) ≤ sqrt(eps()) * norm(A)
+
+  sol = ones(A.n)
+  b = A * sol
+  x = LLDL \ b
+  @test x ≈ sol
+
+  y = similar(b)
+  ldiv!(y, LLDL, b)
+  @test y ≈ sol
+
+  ldiv!(LLDL, b)
+  @test b ≈ sol
+
+  A2 = [
+    10.7 0 0 0 0 0 0 0 0.33 0
+    0 1.0 0 0 0.02 0 0 0 0 0.01
+    0 0 1.5 0 0 0 0 0 0 0
+    0 0 0 3.1 0 0 0 0 0 0
+    0 0.02 0 0 2.6 0 0.16 0.9 0.52 0.53
+    0 0 0 0 0 1.2 0 0 0 0
+    0 0 0 0 0.16 0 1.3 0 0 1.56
+    0 0 0 0 0.9 0 0 1.6 0.11 0
+    0.33 0 0 0 0.52 0 0 0.11 1.4 0
+    0 0.01 0 0 0.53 0 1.56 0 0 30.1
+  ]
+  A2 = sparse(A2)
+  A2low, a2diag = tril(A2, -1), diag(A2)
+  lldl_factorize!(A2low, a2diag, LLDL)
+  @test LLDL.α == 0
+  L = LLDL.L + I
+  @test norm(L * diagm(0 => LLDL.D) * L' - A2[perm, perm]) ≤ sqrt(eps()) * norm(A2)
+
+  sol = ones(A2.n)
+  b = A2 * sol
+  x = LLDL \ b
+  @test x ≈ sol
+
+  y = similar(b)
+  ldiv!(y, LLDL, b)
+  @test y ≈ sol
+
+  ldiv!(LLDL, b)
+  @test b ≈ sol
+end
+
 @testset "with shift lower triangle" begin
   # this matrix requires a shift
   A = [

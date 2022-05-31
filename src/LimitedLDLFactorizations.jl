@@ -21,7 +21,7 @@ The modified version is described in [3,4].
 """
 module LimitedLDLFactorizations
 
-export lldl, \, ldiv!, nnz, LimitedLDLFactorization
+export lldl, lldl_allocate, lldl_factorize!, \, ldiv!, nnz, LimitedLDLFactorization
 
 using AMD, LinearAlgebra, SparseArrays
 
@@ -150,13 +150,31 @@ function LimitedLDLFactorization(
   )
 end
 
-function lldl_analyze(
+"""
+    lldl_allocate(T, adiag, P; memory = 0, α = 0.0)
+
+Perform the allocations for the LLDL factorization of symmetric matrix whose lower triangle is `T` 
+and diagonal is `d` with the permutation vector `P`.
+
+# Arguments
+- `T::SparseMatrixCSC{Tv,Ti}`: lower triangle of the matrix to factorize.
+- `adiag::AbstractVector{Tv}`: diagonal of the matrix to factorize.
+- `P::AbstractVector{<:Integer}`: permutation vector.
+
+# Keyword arguments
+- `memory::Int=0`: extra amount of memory to allocate for the incomplete factor `L`.
+                   The total memory allocated is nnz(T) + n * `memory`, where
+                   `T` is the strict lower triangle of A and `n` is the size of `A`.
+- `α::Tv=Tv(0)`: initial value of the shift in case the incomplete LDLᵀ
+                 factorization of `A` is found to not exist. The shift will be
+                 gradually increased from this initial value until success.
+"""
+function lldl_allocate(
   T::SparseMatrixCSC{Tv, Ti},
   adiag::AbstractVector{Tv},
   P::AbstractVector{<:Integer};
   memory::Int = 0,
   α::Tv = Tv(0),
-  droptol::Tv = Tv(0),
 ) where {Tv <: Number, Ti <: Integer}
   memory < 0 && error("limited-memory parameter must be nonnegative")
   n = size(T, 1)
@@ -174,6 +192,22 @@ function lldl_analyze(
 end
 
 # Here T is the strict lower triangle of A.
+"""
+    lldl_factorize!(T, adiag, S; droptol = 0.0)
+
+Perform the in-place factorization of a symmetric matrix whose lower triangle is `T` and diagonal is `d` 
+with the permutation vector.
+
+# Arguments
+- `T::SparseMatrixCSC{Tv,Ti}`: lower triangle of the matrix to factorize.
+- `adiag::AbstractVector{Tv}`: diagonal of the matrix to factorize.
+- `S::LimitedLDLFactorization{Tv, Ti}`: computed with [`LimitedLDLFactorizations.lldl_allocate`](@ref).
+`T` should keep the same nonzero pattern and `adiag` should keep the sign of its elements.
+
+# Keyword arguments
+- `droptol::Tv=Tv(0)`: to further sparsify `L`, all elements with magnitude smaller
+                       than `droptol` are dropped.
+"""
 function lldl_factorize!(
   T::SparseMatrixCSC{Tv, Ti},
   adiag::AbstractVector{Tv},
@@ -355,7 +389,7 @@ function lldl(
   α::Tv = Tv(0),
   droptol::Tv = Tv(0),
 ) where {Tv <: Number, Ti <: Integer}
-  S = lldl_analyze(T, adiag, P; memory = memory, α = α, droptol = droptol)
+  S = lldl_allocate(T, adiag, P; memory = memory, α = α)
   lldl_factorize!(T, adiag, S, droptol = droptol)
 end
 
