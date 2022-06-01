@@ -48,6 +48,8 @@ mutable struct LimitedLDLFactorization{T <: Real, Ti <: Integer, V1 <: AbstractV
   list::Vector{Ti}
   pos::Vector{Ti}
   neg::Vector{Ti}
+
+  computed_posneg::Bool # true if pos and neg are computed (becomes false after factorization)
 end
 
 lldl(A::Array{Tv, 2}; kwargs...) where {Tv <: Number} = lldl(sparse(A); kwargs...)
@@ -147,6 +149,7 @@ function LimitedLDLFactorization(
     list,
     pos,
     neg,
+    true,
   )
 end
 
@@ -287,16 +290,19 @@ function lldl_factorize!(
   neg = S.neg
   cpos = 0
   cneg = 0
-  for i=1:n
-    adiagPi = adiag[P[i]]
-    if adiagPi > Tv(0)
-      cpos += 1 
-      pos[cpos] = i
-    else
-      cneg += 1
-      neg[cneg] = i
+  if !(S.computed_posneg)
+    for i=1:n
+      adiagPi = adiag[P[i]]
+      if adiagPi > Tv(0)
+        cpos += 1 
+        pos[cpos] = i
+      else
+        cneg += 1
+        neg[cneg] = i
+      end
     end
   end
+  S.computed_posneg = false
 
   while !(factorized || tired)
 
