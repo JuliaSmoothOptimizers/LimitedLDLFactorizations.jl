@@ -15,5 +15,6 @@ makedocs(
 
 deploydocs(
   repo = "github.com/JuliaSmoothOptimizers/LimitedLDLFactorizations.jl.git",
+  push_preview = true,
   devbranch = "main",
 )
