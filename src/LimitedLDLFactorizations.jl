@@ -21,7 +21,7 @@ The modified version is described in [3,4].
 """
 module LimitedLDLFactorizations
 
-export lldl, lldl_allocate, lldl_factorize!, \, ldiv!, nnz, LimitedLDLFactorization
+export lldl, lldl_factorize!, \, ldiv!, nnz, LimitedLDLFactorization
 
 using AMD, LinearAlgebra, SparseArrays
 
@@ -154,7 +154,7 @@ function LimitedLDLFactorization(
 end
 
 """
-    lldl_allocate(T, adiag, P; memory = 0, α = 0.0)
+    LLDL = LimitedLDLFactorization(T, adiag, P; memory = 0, α = 0.0)
 
 Perform the allocations for the LLDL factorization of symmetric matrix whose lower triangle is `T` 
 and diagonal is `d` with the permutation vector `P`.
@@ -172,7 +172,7 @@ and diagonal is `d` with the permutation vector `P`.
                  factorization of `A` is found to not exist. The shift will be
                  gradually increased from this initial value until success.
 """
-function lldl_allocate(
+function LimitedLDLFactorization(
   T::SparseMatrixCSC{Tv, Ti},
   adiag::AbstractVector{Tv},
   P::AbstractVector{<:Integer};
@@ -196,15 +196,15 @@ end
 
 # Here T is the strict lower triangle of A.
 """
-    lldl_factorize!(T, adiag, S; droptol = 0.0)
+    lldl_factorize!(S, T, adiag; droptol = 0.0)
 
 Perform the in-place factorization of a symmetric matrix whose lower triangle is `T` and diagonal is `d` 
 with the permutation vector.
 
 # Arguments
+- `S::LimitedLDLFactorization{Tv, Ti}`.
 - `T::SparseMatrixCSC{Tv,Ti}`: lower triangle of the matrix to factorize.
 - `adiag::AbstractVector{Tv}`: diagonal of the matrix to factorize.
-- `S::LimitedLDLFactorization{Tv, Ti}`: computed with [`LimitedLDLFactorizations.lldl_allocate`](@ref).
 `T` should keep the same nonzero pattern and `adiag` should keep the sign of its elements.
 
 # Keyword arguments
@@ -212,9 +212,9 @@ with the permutation vector.
                        than `droptol` are dropped.
 """
 function lldl_factorize!(
+  S::LimitedLDLFactorization{Tv, Ti},
   T::SparseMatrixCSC{Tv, Ti},
-  adiag::AbstractVector{Tv},
-  S::LimitedLDLFactorization{Tv, Ti};
+  adiag::AbstractVector{Tv};
   droptol::Tv = Tv(0),
 ) where {Tv <: Number, Ti <: Integer}
 
@@ -395,8 +395,8 @@ function lldl(
   α::Tv = Tv(0),
   droptol::Tv = Tv(0),
 ) where {Tv <: Number, Ti <: Integer}
-  S = lldl_allocate(T, adiag, P; memory = memory, α = α)
-  lldl_factorize!(T, adiag, S, droptol = droptol)
+  S = LimitedLDLFactorization(T, adiag, P; memory = memory, α = α)
+  lldl_factorize!(S, T, adiag, droptol = droptol)
 end
 
 function attempt_lldl!(
