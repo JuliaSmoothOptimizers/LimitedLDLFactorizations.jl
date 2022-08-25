@@ -25,7 +25,12 @@ export lldl, lldl_factorize!, \, ldiv!, nnz, LimitedLDLFactorization
 
 using AMD, LinearAlgebra, SparseArrays
 
-mutable struct LimitedLDLFactorization{T <: Real, Ti <: Integer, V1 <: AbstractVector, V2 <: AbstractVector}
+mutable struct LimitedLDLFactorization{
+  T <: Real,
+  Ti <: Integer,
+  V1 <: AbstractVector,
+  V2 <: AbstractVector,
+}
   n::Int
   colptr::Vector{Ti}
   rowind::Vector{Ti}
@@ -183,15 +188,7 @@ function LimitedLDLFactorization(
   n = size(T, 1)
   n != size(T, 2) && error("input matrix must be square")
   n != length(adiag) && error("inconsistent size of diagonal")
-  return LimitedLDLFactorization(
-    adiag,
-    P,
-    Ti,
-    memory,
-    α,
-    n,
-    nnz(T),
-  ) 
+  return LimitedLDLFactorization(adiag, P, Ti, memory, α, n, nnz(T))
 end
 
 # Here T is the strict lower triangle of A.
@@ -217,7 +214,6 @@ function lldl_factorize!(
   adiag::AbstractVector{Tv};
   droptol::Tv = Tv(0),
 ) where {Tv <: Number, Ti <: Integer}
-
   n = size(T, 1)
   n != size(T, 2) && error("input matrix must be square")
   n != length(adiag) && error("inconsistent size of diagonal")
@@ -291,10 +287,10 @@ function lldl_factorize!(
   cpos = 0
   cneg = 0
   if !(S.computed_posneg)
-    for i=1:n
+    for i = 1:n
       adiagPi = adiag[P[i]]
       if adiagPi > Tv(0)
-        cpos += 1 
+        cpos += 1
         pos[cpos] = i
       else
         cneg += 1
