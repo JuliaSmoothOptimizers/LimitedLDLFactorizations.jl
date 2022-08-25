@@ -132,8 +132,8 @@ end
   A = sparse(A)
   Alow, adiag = tril(A, -1), diag(A)
   perm = amd(A)
-  LLDL = lldl_allocate(Alow, adiag, perm, memory = 10)
-  lldl_factorize!(Alow, adiag, LLDL)
+  LLDL = LimitedLDLFactorization(Alow, adiag, perm, memory = 10)
+  lldl_factorize!(LLDL, Alow, adiag)
   @test LLDL.α == 0
   L = LLDL.L + I
   @test norm(L * diagm(0 => LLDL.D) * L' - A[perm, perm]) ≤ sqrt(eps()) * norm(A)
@@ -164,7 +164,7 @@ end
   ]
   A2 = sparse(A2)
   A2low, a2diag = tril(A2, -1), diag(A2)
-  lldl_factorize!(A2low, a2diag, LLDL)
+  lldl_factorize!(LLDL, A2low, a2diag)
   @test LLDL.α == 0
   L = LLDL.L + I
   @test norm(L * diagm(0 => LLDL.D) * L' - A2[perm, perm]) ≤ sqrt(eps()) * norm(A2)
