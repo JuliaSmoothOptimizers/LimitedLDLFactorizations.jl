@@ -19,17 +19,17 @@ using AMD, Metis, LimitedLDLFactorizations
   A = sparse(A)
 
   for perm ∈ (1:(A.n), amd(A), Metis.permutation(A)[1])
-    LLDL = lldl(A, perm, memory = 0)
+    LLDL = lldl(A, P = perm, memory = 0)
     nnzl0 = nnz(LLDL)
     @test nnzl0 == nnz(tril(A))
     @test LLDL.α == 0
 
-    LLDL = lldl(A, perm, memory = 5)
+    LLDL = lldl(A, P = perm, memory = 5)
     nnzl5 = nnz(LLDL)
     @test nnzl5 ≥ nnzl0
     @test LLDL.α == 0
 
-    LLDL = lldl(A, perm, memory = 10)
+    LLDL = lldl(A, P = perm, memory = 10)
     @test nnz(LLDL) ≥ nnzl5
     @test LLDL.α == 0
     L = LLDL.L + I
@@ -85,17 +85,17 @@ end
   B = tril(A)
 
   for perm ∈ (1:(A.n), amd(A), Metis.permutation(A)[1])
-    LLDL = lldl(B, perm, memory = 0)
+    LLDL = lldl(B, P = perm, memory = 0)
     nnzl0 = nnz(LLDL)
     @test nnzl0 == nnz(tril(A))
     @test LLDL.α == 0
 
-    LLDL = lldl(B, perm, memory = 5)
+    LLDL = lldl(B, P = perm, memory = 5)
     nnzl5 = nnz(LLDL)
     @test nnzl5 ≥ nnzl0
     @test LLDL.α == 0
 
-    LLDL = lldl(B, perm, memory = 10)
+    LLDL = lldl(B, P = perm, memory = 10)
     @test nnz(LLDL) ≥ nnzl5
     @test LLDL.α == 0
     L = LLDL.L + I
@@ -130,10 +130,10 @@ end
     0 0.01 0 0 0.53 0 0.56 0 0 3.1
   ]
   A = sparse(A)
-  Alow, adiag = tril(A, -1), diag(A)
+  Alow = tril(A)
   perm = amd(A)
-  LLDL = LimitedLDLFactorization(Alow, adiag, perm, memory = 10)
-  lldl_factorize!(LLDL, Alow, adiag)
+  LLDL = LimitedLDLFactorization(Alow, P = perm, memory = 10)
+  lldl_factorize!(LLDL, Alow)
   @test LLDL.α == 0
   L = LLDL.L + I
   @test norm(L * diagm(0 => LLDL.D) * L' - A[perm, perm]) ≤ sqrt(eps()) * norm(A)
@@ -163,8 +163,8 @@ end
     0 0.01 0 0 0.53 0 1.56 0 0 30.1
   ]
   A2 = sparse(A2)
-  A2low, a2diag = tril(A2, -1), diag(A2)
-  lldl_factorize!(LLDL, A2low, a2diag)
+  A2low = tril(A2)
+  lldl_factorize!(LLDL, A2low)
   @test LLDL.α == 0
   L = LLDL.L + I
   @test norm(L * diagm(0 => LLDL.D) * L' - A2[perm, perm]) ≤ sqrt(eps()) * norm(A2)
