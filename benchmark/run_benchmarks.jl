@@ -7,11 +7,13 @@ repo_name = string(split(ARGS[1], ".")[1])
 bmarkname = lowercase(repo_name)
 using Git
 
+const git = Git.git()
+
 # if we are running these benchmarks from the git repository
 # we want to develop the package instead of using the release
 if isdir(joinpath(bmark_dir, "..", ".git"))
   Pkg.develop(PackageSpec(url = joinpath(bmark_dir, "..")))
-  bmarkname = Git.head()  # sha of HEAD
+  bmarkname = readchomp(`$git rev-parse HEAD`)  # sha of HEAD
 end
 
 using DataFrames
@@ -81,6 +83,6 @@ json_dict = Dict{String, Any}(
   "files" => files_dict,
 )
 
-open("gist.json", "w") do f
+open("$(bmarkname).json", "w") do f
   JSON.print(f, json_dict)
 end
