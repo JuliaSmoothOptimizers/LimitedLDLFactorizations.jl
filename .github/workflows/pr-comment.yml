@@ -1,13 +1,14 @@
 name: add artifact links to pr
 on:
   workflow_run:
-    workflows: ["bmark_M1"]
+    workflows: [bmark_M1]
     types: [completed]
 
 jobs:
   artifacts-url-comments:
     name: add artifact links to pull request and related issues job
     runs-on: [ubuntu-latest]
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
       - name: add artifact links to pull request and related issues step
         uses: veitbjarsch/artifacts-url-comments@v1.1.0
