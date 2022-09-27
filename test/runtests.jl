@@ -24,7 +24,7 @@ using AMD, Metis, LimitedLDLFactorizations
     @test nnzl0 == nnz(tril(A))
     @test LLDL.α == 0
 
-    LLDL = lldl(A, P = perm, memory = 5)
+    LLDL = lldl(Symmetric(A, :L), P = perm, memory = 5) # test symmetric lldl
     nnzl5 = nnz(LLDL)
     @test nnzl5 ≥ nnzl0
     @test LLDL.α == 0
@@ -165,6 +165,8 @@ end
   A2 = sparse(A2)
   A2low = tril(A2)
   lldl_factorize!(LLDL, A2low)
+  allocs = @allocated lldl_factorize!(LLDL, A2low)
+  @test allocs == 0
   @test LLDL.α == 0
   L = LLDL.L + I
   @test norm(L * diagm(0 => LLDL.D) * L' - A2[perm, perm]) ≤ sqrt(eps()) * norm(A2)
