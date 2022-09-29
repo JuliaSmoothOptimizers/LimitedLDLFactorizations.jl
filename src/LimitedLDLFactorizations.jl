@@ -38,6 +38,9 @@ mutable struct LimitedLDLFactorization{
   lvals::Vector{T}
   Lnzvals::SubArray{T, 1, Vector{T}, Tuple{UnitRange{Int}}, true}
 
+  nnz_diag::Int
+  adiag::Vector{T}
+
   D::Vector{T}
   P::V1
   α::T
@@ -51,70 +54,38 @@ mutable struct LimitedLDLFactorization{
   indr::Vector{Ti}
   indf::Vector{Ti}
   list::Vector{Ti}
-  pos::Vector{Ti}
-  neg::Vector{Ti}
+  pos::Vector{Int}
+  neg::Vector{Int}
 
   computed_posneg::Bool # true if pos and neg are computed (becomes false after factorization)
 end
 
-lldl(A::Array{Tv, 2}; kwargs...) where {Tv <: Number} = lldl(sparse(A); kwargs...)
-
-"""
-    lldl(A)
-
-Compute the limited-memory LDLᵀ factorization of A without pivoting.
-
-# Arguments
-- `A::SparseMatrixCSC{Tv,Ti}`: matrix to factorize (its strict lower triangle and
-                               diagonal will be extracted)
-
-# Keyword arguments
-- `memory::Int=0`: extra amount of memory to allocate for the incomplete factor `L`.
-                   The total memory allocated is nnz(T) + n * `memory`, where
-                   `T` is the strict lower triangle of A and `n` is the size of `A`.
-- `α::Tv=Tv(0)`: initial value of the shift in case the incomplete LDLᵀ
-                 factorization of `A` is found to not exist. The shift will be
-                 gradually increased from this initial value until success.
-- `droptol::Tv=Tv(0)`: to further sparsify `L`, all elements with magnitude smaller
-                       than `droptol` are dropped.
-"""
-function lldl(A::SparseMatrixCSC{Tv, Ti}; kwargs...) where {Tv <: Number, Ti <: Integer}
-  lldl(tril(A, -1), diag(A), amd(A); kwargs...)
-end
-
-function lldl(
-  A::SparseMatrixCSC{Tv, Ti},
-  P::AbstractVector{<:Integer};
-  kwargs...,
-) where {Tv <: Number, Ti <: Integer}
-  lldl(tril(A, -1), diag(A), P; kwargs...)
-end
-
-# symmetric matrix input
-function lldl(
-  sA::Symmetric{T, SparseMatrixCSC{T, Ti}},
-  args...;
-  kwargs...,
-) where {T <: Real, Ti <: Integer}
-  sA.uplo == 'U' && error("matrix must contain the lower triangle")
-  A = sA.data
-  lldl(A, args...; kwargs...)
-end
-
 function LimitedLDLFactorization(
-  adiag::AbstractVector{Tv},
+  T::SparseMatrixCSC{Tv, Ti},
   P::AbstractVector{<:Integer},
-  Ti::DataType,
   memory::Int,
   α::Tv,
   n::Int,
   nnzT::Int,
-) where {Tv <: Number}
+) where {Tv <: Number, Ti}
   np = n * memory
   Pinv = similar(P)
 
+  nnz_diag = 0
+  adiag = Vector{Tv}(undef, n)
+  for col = 1:n
+    k = T.colptr[col]
+    row = (k ≤ nnzT) ? T.rowval[k] : 0
+    if row == col
+      nnz_diag += 1
+      adiag[col] = T.nzval[k]
+    else
+      adiag[col] = zero(Tv)
+    end
+  end
+
   # Make room to store L.
-  nnzLmax = nnzT + np
+  nnzLmax = nnzT + np - nnz_diag
   d = Vector{Tv}(undef, n)  # Diagonal matrix D.
   lvals = Vector{Tv}(undef, nnzLmax)  # Strict lower triangle of L.
   rowind = Vector{Ti}(undef, nnzLmax)
@@ -141,6 +112,8 @@ function LimitedLDLFactorization(
     Lrowind,
     lvals,
     Lnzvals,
+    nnz_diag,
+    adiag,
     d,
     P,
     α,
@@ -159,17 +132,16 @@ function LimitedLDLFactorization(
 end
 
 """
-    LLDL = LimitedLDLFactorization(T, adiag, P; memory = 0, α = 0.0)
+    LLDL = LimitedLDLFactorization(T, P; memory = 0, α = 0.0)
 
 Perform the allocations for the LLDL factorization of symmetric matrix whose lower triangle is `T` 
-and diagonal is `d` with the permutation vector `P`.
+with the permutation vector `P`.
 
 # Arguments
 - `T::SparseMatrixCSC{Tv,Ti}`: lower triangle of the matrix to factorize.
-- `adiag::AbstractVector{Tv}`: diagonal of the matrix to factorize.
-- `P::AbstractVector{<:Integer}`: permutation vector.
 
 # Keyword arguments
+- `P::AbstractVector{<:Integer} = amd(T)`: permutation vector.
 - `memory::Int=0`: extra amount of memory to allocate for the incomplete factor `L`.
                    The total memory allocated is nnz(T) + n * `memory`, where
                    `T` is the strict lower triangle of A and `n` is the size of `A`.
@@ -178,31 +150,28 @@ and diagonal is `d` with the permutation vector `P`.
                  gradually increased from this initial value until success.
 """
 function LimitedLDLFactorization(
-  T::SparseMatrixCSC{Tv, Ti},
-  adiag::AbstractVector{Tv},
-  P::AbstractVector{<:Integer};
+  T::SparseMatrixCSC{Tv, Ti};
+  P::AbstractVector{<:Integer} = amd(T),
   memory::Int = 0,
   α::Tv = Tv(0),
 ) where {Tv <: Number, Ti <: Integer}
   memory < 0 && error("limited-memory parameter must be nonnegative")
   n = size(T, 1)
   n != size(T, 2) && error("input matrix must be square")
-  n != length(adiag) && error("inconsistent size of diagonal")
-  return LimitedLDLFactorization(adiag, P, Ti, memory, α, n, nnz(T))
+  return LimitedLDLFactorization(T, P, memory, α, n, nnz(T))
 end
 
-# Here T is the strict lower triangle of A.
+# Here T is the lower triangle of A.
 """
-    lldl_factorize!(S, T, adiag; droptol = 0.0)
+    lldl_factorize!(S, T; droptol = 0.0)
 
-Perform the in-place factorization of a symmetric matrix whose lower triangle is `T` and diagonal is `d` 
+Perform the in-place factorization of a symmetric matrix whose lower triangle is `T` 
 with the permutation vector.
 
 # Arguments
 - `S::LimitedLDLFactorization{Tv, Ti}`.
 - `T::SparseMatrixCSC{Tv,Ti}`: lower triangle of the matrix to factorize.
-- `adiag::AbstractVector{Tv}`: diagonal of the matrix to factorize.
-`T` should keep the same nonzero pattern and `adiag` should keep the sign of its elements.
+`T` should keep the same nonzero pattern and the sign of its diagonal elements.
 
 # Keyword arguments
 - `droptol::Tv=Tv(0)`: to further sparsify `L`, all elements with magnitude smaller
@@ -210,21 +179,19 @@ with the permutation vector.
 """
 function lldl_factorize!(
   S::LimitedLDLFactorization{Tv, Ti},
-  T::SparseMatrixCSC{Tv, Ti},
-  adiag::AbstractVector{Tv};
+  T::SparseMatrixCSC{Tv, Ti};
   droptol::Tv = Tv(0),
 ) where {Tv <: Number, Ti <: Integer}
   n = size(T, 1)
   n != size(T, 2) && error("input matrix must be square")
-  n != length(adiag) && error("inconsistent size of diagonal")
 
   colptr = S.colptr
   Lrowind = S.Lrowind
   Lnzvals = S.Lnzvals
 
   nnzT = nnz(T)
+  nnzT_nodiag = nnzT - S.nnz_diag
   memory = S.memory
-  np = n * memory
   α = S.α
 
   P = S.P
@@ -232,6 +199,13 @@ function lldl_factorize!(
   # Compute inverse permutation
   @inbounds for k = 1:n
     Pinv[P[k]] = k
+  end
+
+  adiag = S.adiag
+  for col = 1:n
+    k = T.colptr[col]
+    row = (k ≤ nnzT) ? T.rowval[k] : 0
+    adiag[col] = (row == col) ? T.nzval[k] : zero(Tv)
   end
 
   d = S.D  # Diagonal matrix D.
@@ -244,13 +218,15 @@ function lldl_factorize!(
   wa1 = S.wa1
   wa1 .= zero(Tv)
   s = S.s
-  @inbounds @simd for col = 1:n
+  @inbounds for col = 1:n
     s[col] = Tv(1) # Initialization
-    @inbounds @simd for k = T.colptr[col]:(T.colptr[col + 1] - 1)
+    @inbounds for k = T.colptr[col]:(T.colptr[col + 1] - 1)
+      row = T.rowval[k]
+      (row == col) && continue
       val = T.nzval[k]
       val2 = val * val
       wa1[Pinv[col]] += val2  # Contribution to column Pinv[col].
-      wa1[Pinv[T.rowval[k]]] += val2  # Contribution to column Pinv[T.rowval[k]].
+      wa1[Pinv[row]] += val2  # Contribution to column Pinv[row].
     end
   end
 
@@ -307,8 +283,9 @@ function lldl_factorize!(
     fill!(indr, 0)
     @inbounds for col = 1:n
       @inbounds for k = T.colptr[col]:(T.colptr[col + 1] - 1)
-        row = Pinv[T.rowval[k]]
-        indr[min(row, Pinv[col])] += one(Ti)
+        row = T.rowval[k]
+        (row == col) && continue
+        indr[min(Pinv[row], Pinv[col])] += one(Ti)
       end
     end
     # cumulative sum
@@ -329,11 +306,13 @@ function lldl_factorize!(
       scol = s[pinvcol]
       d[pinvcol] = adiag[col] * scol * scol
       @inbounds for k = T.colptr[col]:(T.colptr[col + 1] - 1)
-        row = Pinv[T.rowval[k]]
-        q = indr[min(row, pinvcol)]
-        rowind[q] = max(row, pinvcol)
-        lvals[q] = T.nzval[k] * scol * s[row]
-        indr[min(row, pinvcol)] += one(Ti)
+        row = T.rowval[k]
+        (row == col) && continue
+        pinvrow = Pinv[row]
+        q = indr[min(pinvrow, pinvcol)]
+        rowind[q] = max(pinvrow, pinvcol)
+        lvals[q] = T.nzval[k] * scol * s[pinvrow]
+        indr[min(pinvrow, pinvcol)] += one(Ti)
       end
     end
 
@@ -346,7 +325,7 @@ function lldl_factorize!(
 
     # Attempt a factorization.
     factorized = attempt_lldl!(
-      nnzT,
+      nnzT_nodiag,
       d,
       lvals,
       rowind,
@@ -383,16 +362,51 @@ function lldl_factorize!(
   return S
 end
 
+"""
+    lldl(A)
+
+Compute the limited-memory LDLᵀ factorization of `A`.
+`A` should be a lower triangular matrix.
+
+# Arguments
+- `A::SparseMatrixCSC{Tv,Ti}`: matrix to factorize (its strict lower triangle and
+                               diagonal will be extracted)
+
+# Keyword arguments
+- `P::AbstractVector{<:Integer} = amd(A)`: permutation vector.
+- `memory::Int=0`: extra amount of memory to allocate for the incomplete factor `L`.
+                   The total memory allocated is nnz(T) + n * `memory`, where
+                   `T` is the strict lower triangle of A and `n` is the size of `A`.
+- `α::Tv=Tv(0)`: initial value of the shift in case the incomplete LDLᵀ
+                 factorization of `A` is found to not exist. The shift will be
+                 gradually increased from this initial value until success.
+- `droptol::Tv=Tv(0)`: to further sparsify `L`, all elements with magnitude smaller
+                       than `droptol` are dropped.
+- `check_tril::Bool = true`: check if `A` is a lower triangular matrix. 
+"""
 function lldl(
-  T::SparseMatrixCSC{Tv, Ti},
-  adiag::AbstractVector{Tv},
-  P::AbstractVector{<:Integer};
+  A::SparseMatrixCSC{Tv, Ti};
+  P::AbstractVector{<:Integer} = amd(A),
   memory::Int = 0,
   α::Tv = Tv(0),
   droptol::Tv = Tv(0),
+  check_tril::Bool = true,
 ) where {Tv <: Number, Ti <: Integer}
-  S = LimitedLDLFactorization(T, adiag, P; memory = memory, α = α)
-  lldl_factorize!(S, T, adiag, droptol = droptol)
+  T = (!check_tril || istril(A)) ? A : tril(A)
+  S = LimitedLDLFactorization(T; P = P, memory = memory, α = α)
+  lldl_factorize!(S, T, droptol = droptol)
+end
+
+lldl(A::Matrix{Tv}; kwargs...) where {Tv <: Number} = lldl(sparse(A); kwargs...)
+
+# symmetric matrix input
+function lldl(
+  sA::Union{Symmetric{T, SparseMatrixCSC{T, Ti}}, Hermitian{T, SparseMatrixCSC{T, Ti}}};
+  kwargs...
+) where {T <: Real, Ti <: Integer}
+  sA.uplo == 'U' && error("matrix must contain the lower triangle")
+  A = sA.data
+  lldl(A; kwargs...)
 end
 
 function attempt_lldl!(
