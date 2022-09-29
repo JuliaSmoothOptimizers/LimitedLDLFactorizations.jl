@@ -238,7 +238,7 @@ function lldl_factorize!(
   end
 
   # Set initial shift. Keep it at zero if possible.
-  α_min = 1.0e-3
+  α_min = sqrt(eps(Tv))
   if α > 0
     α = max(α, α_min)
   end
@@ -255,8 +255,7 @@ function lldl_factorize!(
   w = S.w    # contents of the current column of A.
   indr = S.indr  # row indices of the nonzeros in the current column after it's been loaded into w.
   indf = S.indf  # indf[col] = position in w of the next entry in column col to be used during the factorization.
-  list = S.list
-  list .= zero(Ti)  # list[col] = linked list of columns that will update column col.
+  list = S.list  # list[col] = linked list of columns that will update column col.
 
   pos = S.pos
   neg = S.neg
@@ -341,7 +340,7 @@ function lldl_factorize!(
     # Increase shift if the factorization didn't succeed.
     if !factorized
       nb_increase_α += 1
-      α *= 2
+      α = (α == 0) ? α_min : 2 * α
       tired = nb_increase_α > max_increase_α
     end
   end
@@ -422,6 +421,8 @@ function attempt_lldl!(
   memory::Ti = 0,
   droptol::Tv = Tv(0),
 ) where {Ti <: Integer, Tv <: Number}
+  fill!(list, 0)
+  fill!(indf, 0)
   n = size(d, 1)
   np = n * memory
   droptol = max(0, droptol)
