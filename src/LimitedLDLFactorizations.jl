@@ -402,7 +402,7 @@ lldl(A::Matrix{Tv}; kwargs...) where {Tv <: Number} = lldl(sparse(A); kwargs...)
 # symmetric matrix input
 function lldl(
   sA::Union{Symmetric{T, SparseMatrixCSC{T, Ti}}, Hermitian{T, SparseMatrixCSC{T, Ti}}};
-  kwargs...
+  kwargs...,
 ) where {T <: Real, Ti <: Integer}
   sA.uplo == 'U' && error("matrix must contain the lower triangle")
   A = sA.data
