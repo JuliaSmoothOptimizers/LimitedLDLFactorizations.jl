@@ -38,7 +38,7 @@ mutable struct LimitedLDLFactorization{
   lvals::Vector{T}
   Lnzvals::SubArray{T, 1, Vector{T}, Tuple{UnitRange{Int}}, true}
 
-  nb_diag_elements::Int
+  nnz_diag::Int
   adiag::Vector{T}
 
   D::Vector{T}
@@ -71,13 +71,13 @@ function LimitedLDLFactorization(
   np = n * memory
   Pinv = similar(P)
 
-  nb_diag_elements = 0
+  nnz_diag = 0
   adiag = Vector{Tv}(undef, n)
   for col = 1:n
     k = T.colptr[col]
     row = (k ≤ nnzT) ? T.rowval[k] : 0
     if row == col
-      nb_diag_elements += 1
+      nnz_diag += 1
       adiag[col] = T.nzval[k]
     else
       adiag[col] = zero(Tv)
@@ -85,7 +85,7 @@ function LimitedLDLFactorization(
   end
 
   # Make room to store L.
-  nnzLmax = nnzT + np - nb_diag_elements
+  nnzLmax = nnzT + np - nnz_diag
   d = Vector{Tv}(undef, n)  # Diagonal matrix D.
   lvals = Vector{Tv}(undef, nnzLmax)  # Strict lower triangle of L.
   rowind = Vector{Ti}(undef, nnzLmax)
@@ -112,7 +112,7 @@ function LimitedLDLFactorization(
     Lrowind,
     lvals,
     Lnzvals,
-    nb_diag_elements,
+    nnz_diag,
     adiag,
     d,
     P,
@@ -190,7 +190,7 @@ function lldl_factorize!(
   Lnzvals = S.Lnzvals
 
   nnzT = nnz(T)
-  nnzT_nodiag = nnzT - S.nb_diag_elements
+  nnzT_nodiag = nnzT - S.nnz_diag
   memory = S.memory
   α = S.α
 
