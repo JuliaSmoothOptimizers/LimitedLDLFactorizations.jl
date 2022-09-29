@@ -161,11 +161,11 @@ function LimitedLDLFactorization(
   return LimitedLDLFactorization(T, P, memory, α, n, nnz(T))
 end
 
-# Here T is the strict lower triangle of A.
+# Here T is the lower triangle of A.
 """
     lldl_factorize!(S, T; droptol = 0.0)
 
-Perform the in-place factorization of a symmetric matrix whose lower triangle is `T` and diagonal is `d` 
+Perform the in-place factorization of a symmetric matrix whose lower triangle is `T` 
 with the permutation vector.
 
 # Arguments
@@ -226,7 +226,7 @@ function lldl_factorize!(
       val = T.nzval[k]
       val2 = val * val
       wa1[Pinv[col]] += val2  # Contribution to column Pinv[col].
-      wa1[Pinv[row]] += val2  # Contribution to column Pinv[T.rowval[k]].
+      wa1[Pinv[row]] += val2  # Contribution to column Pinv[row].
     end
   end
 
@@ -365,7 +365,7 @@ end
 """
     lldl(A)
 
-Compute the limited-memory LDLᵀ factorization of `A` without pivoting.
+Compute the limited-memory LDLᵀ factorization of `A`.
 `A` should be a lower triangular matrix.
 
 # Arguments
@@ -397,7 +397,7 @@ function lldl(
   lldl_factorize!(S, T, droptol = droptol)
 end
 
-lldl(A::Array{Tv, 2}; kwargs...) where {Tv <: Number} = lldl(sparse(A); kwargs...)
+lldl(A::Matrix{Tv}; kwargs...) where {Tv <: Number} = lldl(sparse(A); kwargs...)
 
 # symmetric matrix input
 function lldl(
