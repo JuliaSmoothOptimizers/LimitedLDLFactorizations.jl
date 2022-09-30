@@ -219,3 +219,42 @@ end
   LLDL = lldl(A, memory = 5)
   @test LLDL.α == 0
 end
+
+@testset "test lower-precision factorization" begin
+  # Lower triangle only
+  Tf = Float32
+  A = [
+    1.7 0 0 0 0 0 0 0 0.13 0
+    0 1.0 0 0 0.02 0 0 0 0 0.01
+    0 0 1.5 0 0 0 0 0 0 0
+    0 0 0 1.1 0 0 0 0 0 0
+    0 0.02 0 0 2.6 0 0.16 0.09 0.52 0.53
+    0 0 0 0 0 1.2 0 0 0 0
+    0 0 0 0 0.16 0 1.3 0 0 0.56
+    0 0 0 0 0.09 0 0 1.6 0.11 0
+    0.13 0 0 0 0.52 0 0 0.11 1.4 0
+    0 0.01 0 0 0.53 0 0.56 0 0 3.1
+  ]
+  A = sparse(A)
+  Alow = tril(A)
+  perm = amd(A)
+  LLDL = lldl(Alow, P = perm, memory = 10, Tf = Tf)
+  @test eltype(LLDL.D) == Tf
+
+  L = LLDL.L + I
+  @test norm(L * diagm(0 => LLDL.D) * L' - A[perm, perm]) ≤ sqrt(eps(Tf)) * norm(A)
+
+  sol = ones(Tf, A.n)
+  b = similar(sol)
+  mul!(b, A, sol)
+  x = LLDL \ b
+  @test x ≈ sol
+  @test eltype(x) == Tf
+
+  y = similar(b)
+  ldiv!(y, LLDL, b)
+  @test y ≈ sol
+
+  ldiv!(LLDL, b)
+  @test b ≈ sol
+end

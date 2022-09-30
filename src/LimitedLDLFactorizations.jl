@@ -64,44 +64,44 @@ function LimitedLDLFactorization(
   T::SparseMatrixCSC{Tv, Ti},
   P::AbstractVector{<:Integer},
   memory::Int,
-  α::Tv,
+  α::Number,
   n::Int,
   nnzT::Int,
+  Tf::DataType,
 ) where {Tv <: Number, Ti}
   np = n * memory
   Pinv = similar(P)
 
   nnz_diag = 0
-  adiag = Vector{Tv}(undef, n)
+  adiag = Vector{Tf}(undef, n)
   for col = 1:n
     k = T.colptr[col]
     row = (k ≤ nnzT) ? T.rowval[k] : 0
     if row == col
       nnz_diag += 1
-      adiag[col] = T.nzval[k]
+      adiag[col] = Tf(T.nzval[k])
     else
-      adiag[col] = zero(Tv)
+      adiag[col] = zero(Tf)
     end
   end
 
   # Make room to store L.
   nnzLmax = nnzT + np - nnz_diag
-  d = Vector{Tv}(undef, n)  # Diagonal matrix D.
-  lvals = Vector{Tv}(undef, nnzLmax)  # Strict lower triangle of L.
+  d = Vector{Tf}(undef, n)  # Diagonal matrix D.
+  lvals = Vector{Tf}(undef, nnzLmax)  # Strict lower triangle of L.
   rowind = Vector{Ti}(undef, nnzLmax)
   colptr = Vector{Ti}(undef, n + 1)
-  wa1 = Vector{Tv}(undef, n)
-  s = Vector{Tv}(undef, n)
+  wa1 = Vector{Tf}(undef, n)
+  s = Vector{Tf}(undef, n)
 
-  w = Vector{Tv}(undef, n)     # contents of the current column of A.
+  w = Vector{Tf}(undef, n)     # contents of the current column of A.
   indr = Vector{Ti}(undef, n)  # row indices of the nonzeros in the current column after it's been loaded into w.
   indf = Vector{Ti}(undef, n)  # indf[col] = position in w of the next entry in column col to be used during the factorization.
   list = zeros(Ti, n)  # list[col] = linked list of columns that will update column col.
 
-  pos = findall(adiag[P] .> Tv(0))
-  neg = findall(adiag[P] .≤ Tv(0))
+  pos = findall(adiag[P] .> Tf(0))
+  neg = findall(adiag[P] .≤ Tf(0))
 
-  nz = colptr[end] - 1
   Lrowind = view(rowind, 1:nnzLmax)
   Lnzvals = view(lvals, 1:nnzLmax)
 
@@ -116,7 +116,7 @@ function LimitedLDLFactorization(
     adiag,
     d,
     P,
-    α,
+    Tf(α),
     memory,
     Pinv,
     wa1,
@@ -132,7 +132,7 @@ function LimitedLDLFactorization(
 end
 
 """
-    LLDL = LimitedLDLFactorization(T, P; memory = 0, α = 0.0)
+    LLDL = LimitedLDLFactorization(T, P; memory = 0, α = 0.0, Tf = eltype(T))
 
 Perform the allocations for the LLDL factorization of symmetric matrix whose lower triangle is `T` 
 with the permutation vector `P`.
@@ -145,20 +145,22 @@ with the permutation vector `P`.
 - `memory::Int=0`: extra amount of memory to allocate for the incomplete factor `L`.
                    The total memory allocated is nnz(T) + n * `memory`, where
                    `T` is the strict lower triangle of A and `n` is the size of `A`.
-- `α::Tv=Tv(0)`: initial value of the shift in case the incomplete LDLᵀ
+- `α::Number=Tv(0)`: initial value of the shift in case the incomplete LDLᵀ
                  factorization of `A` is found to not exist. The shift will be
                  gradually increased from this initial value until success.
+- `Tf::DataType = eltype(T)`: type used for the factorization, by default the type of the elements of `T`.
 """
 function LimitedLDLFactorization(
   T::SparseMatrixCSC{Tv, Ti};
   P::AbstractVector{<:Integer} = amd(T),
   memory::Int = 0,
-  α::Tv = Tv(0),
+  α::Number = Tv(0),
+  Tf::DataType = Tv,
 ) where {Tv <: Number, Ti <: Integer}
   memory < 0 && error("limited-memory parameter must be nonnegative")
   n = size(T, 1)
   n != size(T, 2) && error("input matrix must be square")
-  return LimitedLDLFactorization(T, P, memory, α, n, nnz(T))
+  return LimitedLDLFactorization(T, P, memory, α, n, nnz(T), Tf)
 end
 
 # Here T is the lower triangle of A.
@@ -169,19 +171,19 @@ Perform the in-place factorization of a symmetric matrix whose lower triangle is
 with the permutation vector.
 
 # Arguments
-- `S::LimitedLDLFactorization{Tv, Ti}`.
+- `S::LimitedLDLFactorization{Tf, Ti}`.
 - `T::SparseMatrixCSC{Tv,Ti}`: lower triangle of the matrix to factorize.
 `T` should keep the same nonzero pattern and the sign of its diagonal elements.
 
 # Keyword arguments
-- `droptol::Tv=Tv(0)`: to further sparsify `L`, all elements with magnitude smaller
+- `droptol::Tf=Tf(0)`: to further sparsify `L`, all elements with magnitude smaller
                        than `droptol` are dropped.
 """
 function lldl_factorize!(
-  S::LimitedLDLFactorization{Tv, Ti},
+  S::LimitedLDLFactorization{Tf, Ti},
   T::SparseMatrixCSC{Tv, Ti};
-  droptol::Tv = Tv(0),
-) where {Tv <: Number, Ti <: Integer}
+  droptol::Tf = Tf(0),
+) where {Tf <: Number, Tv <: Number, Ti <: Integer}
   n = size(T, 1)
   n != size(T, 2) && error("input matrix must be square")
 
@@ -205,7 +207,7 @@ function lldl_factorize!(
   for col = 1:n
     k = T.colptr[col]
     row = (k ≤ nnzT) ? T.rowval[k] : 0
-    adiag[col] = (row == col) ? T.nzval[k] : zero(Tv)
+    adiag[col] = (row == col) ? Tf(T.nzval[k]) : zero(Tf)
   end
 
   d = S.D  # Diagonal matrix D.
@@ -216,14 +218,14 @@ function lldl_factorize!(
   # Compute the 2-norm of columns of A
   # and the diagonal scaling matrix.
   wa1 = S.wa1
-  wa1 .= zero(Tv)
+  wa1 .= zero(Tf)
   s = S.s
   @inbounds for col = 1:n
-    s[col] = Tv(1) # Initialization
+    s[col] = Tf(1) # Initialization
     @inbounds for k = T.colptr[col]:(T.colptr[col + 1] - 1)
       row = T.rowval[k]
       (row == col) && continue
-      val = T.nzval[k]
+      val = Tf(T.nzval[k])
       val2 = val * val
       wa1[Pinv[col]] += val2  # Contribution to column Pinv[col].
       wa1[Pinv[row]] += val2  # Contribution to column Pinv[row].
@@ -264,7 +266,7 @@ function lldl_factorize!(
   if !(S.computed_posneg)
     for i = 1:n
       adiagPi = adiag[P[i]]
-      if adiagPi > Tv(0)
+      if adiagPi > Tf(0)
         cpos += 1
         pos[cpos] = i
       else
@@ -381,19 +383,21 @@ Compute the limited-memory LDLᵀ factorization of `A`.
                  gradually increased from this initial value until success.
 - `droptol::Tv=Tv(0)`: to further sparsify `L`, all elements with magnitude smaller
                        than `droptol` are dropped.
-- `check_tril::Bool = true`: check if `A` is a lower triangular matrix. 
+- `check_tril::Bool = true`: check if `A` is a lower triangular matrix.
+- `Tf::DataType = eltype(T)`: type used for the factorization, by default the type of the elements of `A`.
 """
 function lldl(
   A::SparseMatrixCSC{Tv, Ti};
   P::AbstractVector{<:Integer} = amd(A),
   memory::Int = 0,
-  α::Tv = Tv(0),
-  droptol::Tv = Tv(0),
+  α::Number = Tv(0),
+  droptol::Number = Tv(0),
   check_tril::Bool = true,
+  Tf::DataType = Tv,
 ) where {Tv <: Number, Ti <: Integer}
   T = (!check_tril || istril(A)) ? A : tril(A)
-  S = LimitedLDLFactorization(T; P = P, memory = memory, α = α)
-  lldl_factorize!(S, T, droptol = droptol)
+  S = LimitedLDLFactorization(T; P = P, memory = memory, α = α, Tf = Tf)
+  lldl_factorize!(S, T, droptol = Tf(droptol))
 end
 
 lldl(A::Matrix{Tv}; kwargs...) where {Tv <: Number} = lldl(sparse(A); kwargs...)
@@ -709,33 +713,22 @@ function lldl_solve!(n, b, Lp, Li, Lx, D, P)
 end
 
 import Base.(\)
-function (\)(
-  LLDL::LimitedLDLFactorization{T, Ti},
-  b::AbstractVector{T},
-) where {T <: Real, Ti <: Integer}
+function (\)(LLDL::LimitedLDLFactorization, b::AbstractVector)
   y = copy(b)
   lldl_solve!(LLDL.n, y, LLDL.colptr, LLDL.Lrowind, LLDL.Lnzvals, LLDL.D, LLDL.P)
 end
 
 import LinearAlgebra.ldiv!
-@inline ldiv!(
-  LLDL::LimitedLDLFactorization{T, Ti},
-  b::AbstractVector{T},
-) where {T <: Real, Ti <: Integer} =
+@inline ldiv!(LLDL::LimitedLDLFactorization, b::AbstractVector) =
   lldl_solve!(LLDL.n, b, LLDL.colptr, LLDL.Lrowind, LLDL.Lnzvals, LLDL.D, LLDL.P)
 
-function ldiv!(
-  y::AbstractVector{T},
-  LLDL::LimitedLDLFactorization{T, Ti},
-  b::AbstractVector{T},
-) where {T <: Real, Ti <: Integer}
+function ldiv!(y::AbstractVector, LLDL::LimitedLDLFactorization, b::AbstractVector)
   y .= b
   lldl_solve!(LLDL.n, y, LLDL.colptr, LLDL.Lrowind, LLDL.Lnzvals, LLDL.D, LLDL.P)
 end
 
 import SparseArrays.nnz
-@inline nnz(LLDL::LimitedLDLFactorization{T, Ti}) where {T <: Real, Ti <: Integer} =
-  length(LLDL.Lrowind) + length(LLDL.D)
+@inline nnz(LLDL::LimitedLDLFactorization) = length(LLDL.Lrowind) + length(LLDL.D)
 
 @inline function Base.getproperty(LLDL::LimitedLDLFactorization, prop::Symbol)
   if prop == :L
