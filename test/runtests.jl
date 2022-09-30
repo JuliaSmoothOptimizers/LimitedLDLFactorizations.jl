@@ -56,7 +56,7 @@ end
     1.0 0.0
   ]
   LLDL = lldl(A)
-  @test LLDL.α ≥ 1.0e-3
+  @test LLDL.α ≥ sqrt(eps())
   @test LLDL.D[1] > 0
   @test LLDL.D[2] < 0
 
@@ -191,7 +191,7 @@ end
     1.0 0.0
   ]
   LLDL = lldl(A)
-  @test LLDL.α ≥ 1.0e-3
+  @test LLDL.α ≥ sqrt(eps())
   @test LLDL.D[1] > 0
   @test LLDL.D[2] < 0
 
