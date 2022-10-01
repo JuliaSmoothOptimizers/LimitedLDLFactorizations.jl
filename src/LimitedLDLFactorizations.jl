@@ -719,7 +719,7 @@ function (\)(LLDL::LimitedLDLFactorization, b::AbstractVector)
 end
 
 import LinearAlgebra.ldiv!
-@inline ldiv!(LLDL::LimitedLDLFactorization, b::AbstractVector) =
+ldiv!(LLDL::LimitedLDLFactorization, b::AbstractVector) =
   lldl_solve!(LLDL.n, b, LLDL.colptr, LLDL.Lrowind, LLDL.Lnzvals, LLDL.D, LLDL.P)
 
 function ldiv!(y::AbstractVector, LLDL::LimitedLDLFactorization, b::AbstractVector)
@@ -728,9 +728,9 @@ function ldiv!(y::AbstractVector, LLDL::LimitedLDLFactorization, b::AbstractVect
 end
 
 import SparseArrays.nnz
-@inline nnz(LLDL::LimitedLDLFactorization) = length(LLDL.Lrowind) + length(LLDL.D)
+nnz(LLDL::LimitedLDLFactorization) = length(LLDL.Lrowind) + length(LLDL.D)
 
-@inline function Base.getproperty(LLDL::LimitedLDLFactorization, prop::Symbol)
+function Base.getproperty(LLDL::LimitedLDLFactorization, prop::Symbol)
   if prop == :L
     nz = LLDL.colptr[end] - 1
     return SparseMatrixCSC(LLDL.n, LLDL.n, LLDL.colptr, LLDL.Lrowind[1:nz], LLDL.Lnzvals[1:nz])
