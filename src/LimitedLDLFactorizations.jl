@@ -132,7 +132,7 @@ function LimitedLDLFactorization(
 end
 
 """
-    LLDL = LimitedLDLFactorization(T, P; memory = 0, α = 0.0, Tf = eltype(T))
+    LLDL = LimitedLDLFactorization(T, P; memory = 0, α = 0, Tf = eltype(T))
 
 Perform the allocations for the LLDL factorization of symmetric matrix whose lower triangle is `T` 
 with the permutation vector `P`.
@@ -145,7 +145,7 @@ with the permutation vector `P`.
 - `memory::Int=0`: extra amount of memory to allocate for the incomplete factor `L`.
                    The total memory allocated is nnz(T) + n * `memory`, where
                    `T` is the strict lower triangle of A and `n` is the size of `A`.
-- `α::Number=Tv(0)`: initial value of the shift in case the incomplete LDLᵀ
+- `α::Number=0`: initial value of the shift in case the incomplete LDLᵀ
                  factorization of `A` is found to not exist. The shift will be
                  gradually increased from this initial value until success.
 - `Tf::DataType = eltype(T)`: type used for the factorization, by default the type of the elements of `T`.
@@ -154,7 +154,7 @@ function LimitedLDLFactorization(
   T::SparseMatrixCSC{Tv, Ti};
   P::AbstractVector{<:Integer} = amd(T),
   memory::Int = 0,
-  α::Number = Tv(0),
+  α::Number = 0,
   Tf::DataType = Tv,
 ) where {Tv <: Number, Ti <: Integer}
   memory < 0 && error("limited-memory parameter must be nonnegative")
@@ -390,8 +390,8 @@ function lldl(
   A::SparseMatrixCSC{Tv, Ti};
   P::AbstractVector{<:Integer} = amd(A),
   memory::Int = 0,
-  α::Number = Tv(0),
-  droptol::Number = Tv(0),
+  α::Number = 0,
+  droptol::Number = 0,
   check_tril::Bool = true,
   Tf::DataType = Tv,
 ) where {Tv <: Number, Ti <: Integer}
