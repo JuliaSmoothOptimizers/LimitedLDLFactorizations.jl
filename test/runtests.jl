@@ -22,16 +22,16 @@ using AMD, Metis, LimitedLDLFactorizations
     LLDL = lldl(A, P = perm, memory = 0)
     nnzl0 = nnz(LLDL)
     @test nnzl0 == nnz(tril(A))
-    @test LLDL.α == 0
+    @test LLDL.α_out == 0
 
     LLDL = lldl(Symmetric(A, :L), P = perm, memory = 5) # test symmetric lldl
     nnzl5 = nnz(LLDL)
     @test nnzl5 ≥ nnzl0
-    @test LLDL.α == 0
+    @test LLDL.α_out == 0
 
     LLDL = lldl(A, P = perm, memory = 10)
     @test nnz(LLDL) ≥ nnzl5
-    @test LLDL.α == 0
+    @test LLDL.α_out == 0
     L = LLDL.L + I
     @test norm(L * diagm(0 => LLDL.D) * L' - A[perm, perm]) ≤ sqrt(eps()) * norm(A)
 
@@ -56,13 +56,13 @@ end
     1.0 0.0
   ]
   LLDL = lldl(A)
-  @test LLDL.α ≥ sqrt(eps())
+  @test LLDL.α_out ≥ sqrt(eps())
   @test LLDL.D[1] > 0
   @test LLDL.D[2] < 0
 
   # specify our own shift
   LLDL = lldl(A, α = 1.0e-2)
-  @test LLDL.α ≥ 1.0e-2
+  @test LLDL.α_out ≥ 1.0e-2
   @test LLDL.D[1] > 0
   @test LLDL.D[2] < 0
 end
@@ -88,16 +88,16 @@ end
     LLDL = lldl(B, P = perm, memory = 0)
     nnzl0 = nnz(LLDL)
     @test nnzl0 == nnz(tril(A))
-    @test LLDL.α == 0
+    @test LLDL.α_out == 0
 
     LLDL = lldl(B, P = perm, memory = 5)
     nnzl5 = nnz(LLDL)
     @test nnzl5 ≥ nnzl0
-    @test LLDL.α == 0
+    @test LLDL.α_out == 0
 
     LLDL = lldl(B, P = perm, memory = 10)
     @test nnz(LLDL) ≥ nnzl5
-    @test LLDL.α == 0
+    @test LLDL.α_out == 0
     L = LLDL.L + I
     @test norm(L * diagm(0 => LLDL.D) * L' - A[perm, perm]) ≤ sqrt(eps()) * norm(A)
 
@@ -133,8 +133,12 @@ end
   Alow = tril(A)
   perm = amd(A)
   LLDL = LimitedLDLFactorization(Alow, P = perm, memory = 10)
+  @test !factorized(LLDL)
+  @test_throws LimitedLDLFactorizations.LLDLException LLDL \ rand(size(A, 1))
+
   lldl_factorize!(LLDL, Alow)
-  @test LLDL.α == 0
+  @test factorized(LLDL)
+  @test LLDL.α_out == 0
   L = LLDL.L + I
   @test norm(L * diagm(0 => LLDL.D) * L' - A[perm, perm]) ≤ sqrt(eps()) * norm(A)
 
@@ -167,7 +171,7 @@ end
   lldl_factorize!(LLDL, A2low)
   allocs = @allocated lldl_factorize!(LLDL, A2low)
   @test allocs == 0
-  @test LLDL.α == 0
+  @test LLDL.α_out == 0
   L = LLDL.L + I
   @test norm(L * diagm(0 => LLDL.D) * L' - A2[perm, perm]) ≤ sqrt(eps()) * norm(A2)
 
@@ -186,18 +190,20 @@ end
 
 @testset "with shift lower triangle" begin
   # this matrix requires a shift
-  A = [
+  A = sparse([
     1.0 0.0
     1.0 0.0
-  ]
+  ])
   LLDL = lldl(A)
-  @test LLDL.α ≥ sqrt(eps())
+  @test LLDL.α_out ≥ sqrt(eps())
   @test LLDL.D[1] > 0
   @test LLDL.D[2] < 0
 
   # specify our own shift
-  LLDL = lldl(A, α = 1.0e-2)
-  @test LLDL.α ≥ 1.0e-2
+  update_shift!(LLDL, 1.0e-2)
+  update_shift_increase_factor!(LLDL, 5)
+  lldl_factorize!(LLDL, A)
+  @test LLDL.α_out ≥ 1.0e-2
   @test LLDL.D[1] > 0
   @test LLDL.D[2] < 0
 end
@@ -217,7 +223,7 @@ end
   ]
   A = convert(SparseMatrixCSC{Float64, Int32}, sparse(A))
   LLDL = lldl(A, memory = 5)
-  @test LLDL.α == 0
+  @test LLDL.α_out == 0
 end
 
 @testset "test lower-precision factorization" begin
