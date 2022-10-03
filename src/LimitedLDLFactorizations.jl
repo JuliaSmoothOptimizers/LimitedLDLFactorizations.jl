@@ -170,7 +170,7 @@ function LimitedLDLFactorization(
   return LimitedLDLFactorization(T, P, memory, α, n, nnz(T), Tf)
 end
 
-LimitedLDLFactorization(T::SparseMatrixCSC{Tv, Ti}; kwargs...) where {Tv <: Number, Ti <: Integer} = 
+LimitedLDLFactorization(T::SparseMatrixCSC{Tv, Ti}; kwargs...) where {Tv <: Number, Ti <: Integer} =
   LimitedLDLFactorization(T, Tv; kwargs...)
 
 # Here T is the lower triangle of A.
