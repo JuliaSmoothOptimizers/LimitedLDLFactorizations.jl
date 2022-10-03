@@ -21,8 +21,15 @@ The modified version is described in [3,4].
 """
 module LimitedLDLFactorizations
 
-export lldl, lldl_factorize!, \, ldiv!, nnz, LimitedLDLFactorization, factorized,
-  update_shift!, update_shift_increase_factor!
+export lldl,
+  lldl_factorize!,
+  \,
+  ldiv!,
+  nnz,
+  LimitedLDLFactorization,
+  factorized,
+  update_shift!,
+  update_shift_increase_factor!
 
 using AMD, LinearAlgebra, SparseArrays
 
@@ -94,7 +101,10 @@ end
 Updates the shift increase value `α_increase_factor` of the `LimitedLDLFactorization` object `LLDL`
 by which the shift `α` will be increased each time a `attempt_lldl!` fails.
 """
-function update_shift_increase_factor!(LLDL::LimitedLDLFactorization{T}, α_increase_factor::Number) where {T <: Real}
+function update_shift_increase_factor!(
+  LLDL::LimitedLDLFactorization{T},
+  α_increase_factor::Number,
+) where {T <: Real}
   LLDL.α_increase_factor = T(α_increase_factor)
   LLDL
 end
@@ -469,7 +479,14 @@ function lldl(
   check_tril::Bool = true,
 ) where {Tv <: Number, Ti <: Integer, Tf <: Real}
   T = (!check_tril || istril(A)) ? A : tril(A)
-  S = LimitedLDLFactorization(T, Tf; P = P, memory = memory, α = α, α_increase_factor = α_increase_factor)
+  S = LimitedLDLFactorization(
+    T,
+    Tf;
+    P = P,
+    memory = memory,
+    α = α,
+    α_increase_factor = α_increase_factor,
+  )
   lldl_factorize!(S, T, droptol = Tf(droptol))
 end
 
