@@ -67,8 +67,8 @@ function LimitedLDLFactorization(
   α::Number,
   n::Int,
   nnzT::Int,
-  Tf::DataType,
-) where {Tv <: Number, Ti}
+  ::Type{Tf},
+) where {Tv <: Number, Ti, Tf <: Real}
   np = n * memory
   Pinv = similar(P)
 
@@ -132,13 +132,15 @@ function LimitedLDLFactorization(
 end
 
 """
-    LLDL = LimitedLDLFactorization(T, P; memory = 0, α = 0, Tf = eltype(T))
+    LLDL = LimitedLDLFactorization(T; P = amd(T), memory = 0, α = 0)
+    LLDL = LimitedLDLFactorization(T, ::Type{Tf}; P = amd(T), memory = 0, α = 0)
 
 Perform the allocations for the LLDL factorization of symmetric matrix whose lower triangle is `T` 
 with the permutation vector `P`.
 
 # Arguments
 - `T::SparseMatrixCSC{Tv,Ti}`: lower triangle of the matrix to factorize.
+- `::Type{Tf}`: type used for the factorization, by default the type of the elements of `A`.
 
 # Keyword arguments
 - `P::AbstractVector{<:Integer} = amd(T)`: permutation vector.
@@ -148,20 +150,28 @@ with the permutation vector `P`.
 - `α::Number=0`: initial value of the shift in case the incomplete LDLᵀ
                  factorization of `A` is found to not exist. The shift will be
                  gradually increased from this initial value until success.
-- `Tf::DataType = eltype(T)`: type used for the factorization, by default the type of the elements of `T`.
+
+# Example
+    A = sprand(Float64, 10, 10, 0.2)
+    T = tril(A * A' + I)
+    LLDL = LimitedLDLFactorization(T) # Float64 factorization
+    LLDL = LimitedLDLFactorization(T, Float32) # Float32 factorization
 """
 function LimitedLDLFactorization(
-  T::SparseMatrixCSC{Tv, Ti};
+  T::SparseMatrixCSC{Tv, Ti},
+  ::Type{Tf};
   P::AbstractVector{<:Integer} = amd(T),
   memory::Int = 0,
   α::Number = 0,
-  Tf::DataType = Tv,
-) where {Tv <: Number, Ti <: Integer}
+) where {Tv <: Number, Ti <: Integer, Tf <: Real}
   memory < 0 && error("limited-memory parameter must be nonnegative")
   n = size(T, 1)
   n != size(T, 2) && error("input matrix must be square")
   return LimitedLDLFactorization(T, P, memory, α, n, nnz(T), Tf)
 end
+
+LimitedLDLFactorization(T::SparseMatrixCSC{Tv, Ti}; kwargs...) where {Tv <: Number, Ti <: Integer} = 
+  LimitedLDLFactorization(T, Tv; kwargs...)
 
 # Here T is the lower triangle of A.
 """
@@ -364,7 +374,8 @@ function lldl_factorize!(
 end
 
 """
-    lldl(A)
+    lldl(A; P = amd(A), memory = 0, α = 0, droptol = 0, check_tril = true)
+    lldl(A, ::Type{Tf}; P = amd(A), memory = 0, α = 0, droptol = 0, check_tril = true)
 
 Compute the limited-memory LDLᵀ factorization of `A`.
 `A` should be a lower triangular matrix.
@@ -372,6 +383,7 @@ Compute the limited-memory LDLᵀ factorization of `A`.
 # Arguments
 - `A::SparseMatrixCSC{Tv,Ti}`: matrix to factorize (its strict lower triangle and
                                diagonal will be extracted)
+- `::Type{Tf}`: type used for the factorization, by default the type of the elements of `A`.
 
 # Keyword arguments
 - `P::AbstractVector{<:Integer} = amd(A)`: permutation vector.
@@ -384,21 +396,31 @@ Compute the limited-memory LDLᵀ factorization of `A`.
 - `droptol::Tv=Tv(0)`: to further sparsify `L`, all elements with magnitude smaller
                        than `droptol` are dropped.
 - `check_tril::Bool = true`: check if `A` is a lower triangular matrix.
-- `Tf::DataType = eltype(T)`: type used for the factorization, by default the type of the elements of `A`.
+
+# Example
+    A = sprand(Float64, 10, 10, 0.2)
+    As = A * A' + I
+    LLDL = lldl(As) # lower triangle is extracted
+    T = tril(As)
+    LLDL = lldl(T) # Float64 factorization
+    LLDL = lldl(T, Float32) # Float32 factorization
 """
 function lldl(
-  A::SparseMatrixCSC{Tv, Ti};
+  A::SparseMatrixCSC{Tv, Ti},
+  ::Type{Tf};
   P::AbstractVector{<:Integer} = amd(A),
   memory::Int = 0,
   α::Number = 0,
   droptol::Number = 0,
   check_tril::Bool = true,
-  Tf::DataType = Tv,
-) where {Tv <: Number, Ti <: Integer}
+) where {Tv <: Number, Ti <: Integer, Tf <: Real}
   T = (!check_tril || istril(A)) ? A : tril(A)
-  S = LimitedLDLFactorization(T; P = P, memory = memory, α = α, Tf = Tf)
+  S = LimitedLDLFactorization(T, Tf; P = P, memory = memory, α = α)
   lldl_factorize!(S, T, droptol = Tf(droptol))
 end
+
+lldl(A::SparseMatrixCSC{Tv, Ti}; kwargs...) where {Tv <: Number, Ti <: Integer} =
+  lldl(A, Tv; kwargs...)
 
 lldl(A::Matrix{Tv}; kwargs...) where {Tv <: Number} = lldl(sparse(A); kwargs...)
 

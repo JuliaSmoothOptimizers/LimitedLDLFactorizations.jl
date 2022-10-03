@@ -238,7 +238,7 @@ end
   A = sparse(A)
   Alow = tril(A)
   perm = amd(A)
-  LLDL = lldl(Alow, P = perm, memory = 10, Tf = Tf)
+  LLDL = lldl(Alow, Tf, P = perm, memory = 10)
   @test eltype(LLDL.D) == Tf
 
   L = LLDL.L + I
