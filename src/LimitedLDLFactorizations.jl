@@ -139,14 +139,14 @@ Perform the allocations for the LLDL factorization of symmetric matrix whose low
 with the permutation vector `P`.
 
 # Arguments
-- `T::SparseMatrixCSC{Tv,Ti}`: lower triangle of the matrix to factorize.
+- `T::SparseMatrixCSC{Tv,Ti}`: lower triangle of the matrix to factorize;
 - `::Type{Tf}`: type used for the factorization, by default the type of the elements of `A`.
 
 # Keyword arguments
-- `P::AbstractVector{<:Integer} = amd(T)`: permutation vector.
+- `P::AbstractVector{<:Integer} = amd(T)`: permutation vector;
 - `memory::Int=0`: extra amount of memory to allocate for the incomplete factor `L`.
                    The total memory allocated is nnz(T) + n * `memory`, where
-                   `T` is the strict lower triangle of A and `n` is the size of `A`.
+                   `T` is the strict lower triangle of A and `n` is the size of `A`;
 - `α::Number=0`: initial value of the shift in case the incomplete LDLᵀ
                  factorization of `A` is found to not exist. The shift will be
                  gradually increased from this initial value until success.
@@ -181,7 +181,7 @@ Perform the in-place factorization of a symmetric matrix whose lower triangle is
 with the permutation vector.
 
 # Arguments
-- `S::LimitedLDLFactorization{Tf, Ti}`.
+- `S::LimitedLDLFactorization{Tf, Ti}`;
 - `T::SparseMatrixCSC{Tv,Ti}`: lower triangle of the matrix to factorize.
 `T` should keep the same nonzero pattern and the sign of its diagonal elements.
 
@@ -382,19 +382,19 @@ Compute the limited-memory LDLᵀ factorization of `A`.
 
 # Arguments
 - `A::SparseMatrixCSC{Tv,Ti}`: matrix to factorize (its strict lower triangle and
-                               diagonal will be extracted)
+                               diagonal will be extracted);
 - `::Type{Tf}`: type used for the factorization, by default the type of the elements of `A`.
 
 # Keyword arguments
 - `P::AbstractVector{<:Integer} = amd(A)`: permutation vector.
 - `memory::Int=0`: extra amount of memory to allocate for the incomplete factor `L`.
                    The total memory allocated is nnz(T) + n * `memory`, where
-                   `T` is the strict lower triangle of A and `n` is the size of `A`.
+                   `T` is the strict lower triangle of A and `n` is the size of `A`;
 - `α::Tv=Tv(0)`: initial value of the shift in case the incomplete LDLᵀ
                  factorization of `A` is found to not exist. The shift will be
-                 gradually increased from this initial value until success.
+                 gradually increased from this initial value until success;
 - `droptol::Tv=Tv(0)`: to further sparsify `L`, all elements with magnitude smaller
-                       than `droptol` are dropped.
+                       than `droptol` are dropped;
 - `check_tril::Bool = true`: check if `A` is a lower triangular matrix.
 
 # Example
