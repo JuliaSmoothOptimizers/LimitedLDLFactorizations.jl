@@ -21,9 +21,16 @@ The modified version is described in [3,4].
 """
 module LimitedLDLFactorizations
 
-export lldl, lldl_factorize!, \, ldiv!, nnz, LimitedLDLFactorization
+export lldl, lldl_factorize!, \, ldiv!, nnz, LimitedLDLFactorization, factorized,
+  update_shift!, update_shift_increase_factor!
 
 using AMD, LinearAlgebra, SparseArrays
+
+mutable struct LLDLException <: Exception
+  msg::String
+end
+
+const error_string = "LLDL factorization was not computed or failed"
 
 mutable struct LimitedLDLFactorization{
   T <: Real,
@@ -31,6 +38,8 @@ mutable struct LimitedLDLFactorization{
   V1 <: AbstractVector,
   V2 <: AbstractVector,
 }
+  __factorized::Bool
+
   n::Int
   colptr::Vector{Ti}
   rowind::Vector{Ti}
@@ -44,6 +53,8 @@ mutable struct LimitedLDLFactorization{
   D::Vector{T}
   P::V1
   α::T
+  α_increase_factor::T
+  α_out::T # α value after factorization (may be different of α if attempt_lldl! had failures)
 
   memory::Int
 
@@ -60,11 +71,40 @@ mutable struct LimitedLDLFactorization{
   computed_posneg::Bool # true if pos and neg are computed (becomes false after factorization)
 end
 
+"""
+    isfact = factorized(LLDL)
+
+Returns true if the most recent factorization stored in `LLDL` [`LimitedLDLFactorization`](@ref) succeeded.
+"""
+factorized(LLDL::LimitedLDLFactorization) = LLDL.__factorized
+
+"""
+    update_shift!(LLDL, α)
+
+Updates the shift `α` of the `LimitedLDLFactorization` object `LLDL`.
+"""
+function update_shift!(LLDL::LimitedLDLFactorization{T}, α::T) where {T <: Real}
+  LLDL.α = α
+  LLDL
+end
+
+"""
+    update_shift_increase_factor!(LLDL, α_increase_factor)
+
+Updates the shift increase value `α_increase_factor` of the `LimitedLDLFactorization` object `LLDL`
+by which the shift `α` will be increased each time a `attempt_lldl!` fails.
+"""
+function update_shift_increase_factor!(LLDL::LimitedLDLFactorization{T}, α_increase_factor::Number) where {T <: Real}
+  LLDL.α_increase_factor = T(α_increase_factor)
+  LLDL
+end
+
 function LimitedLDLFactorization(
   T::SparseMatrixCSC{Tv, Ti},
   P::AbstractVector{<:Integer},
   memory::Int,
-  α::Number,
+  α::Tf,
+  α_increase_factor::Tf,
   n::Int,
   nnzT::Int,
   ::Type{Tf},
@@ -106,6 +146,7 @@ function LimitedLDLFactorization(
   Lnzvals = view(lvals, 1:nnzLmax)
 
   return LimitedLDLFactorization(
+    false,
     n,
     colptr,
     rowind,
@@ -116,7 +157,9 @@ function LimitedLDLFactorization(
     adiag,
     d,
     P,
-    Tf(α),
+    α,
+    α_increase_factor,
+    zero(Tf),
     memory,
     Pinv,
     wa1,
@@ -132,8 +175,8 @@ function LimitedLDLFactorization(
 end
 
 """
-    LLDL = LimitedLDLFactorization(T; P = amd(T), memory = 0, α = 0)
-    LLDL = LimitedLDLFactorization(T, ::Type{Tf}; P = amd(T), memory = 0, α = 0)
+    LLDL = LimitedLDLFactorization(T; P = amd(T), memory = 0, α = 0, α_increase_factor = 10)
+    LLDL = LimitedLDLFactorization(T, ::Type{Tf}; P = amd(T), memory = 0, α = 0, α_increase_factor = 10)
 
 Perform the allocations for the LLDL factorization of symmetric matrix whose lower triangle is `T` 
 with the permutation vector `P`.
@@ -149,7 +192,10 @@ with the permutation vector `P`.
                    `T` is the strict lower triangle of A and `n` is the size of `A`;
 - `α::Number=0`: initial value of the shift in case the incomplete LDLᵀ
                  factorization of `A` is found to not exist. The shift will be
-                 gradually increased from this initial value until success.
+                 gradually increased from this initial value until success;
+- `α_increase_factor::Number=10`: value by which the shift will be increased after 
+                                  the incomplete LDLᵀ factorization of `T` is found
+                                  to not exist.
 
 # Example
     A = sprand(Float64, 10, 10, 0.2)
@@ -163,11 +209,12 @@ function LimitedLDLFactorization(
   P::AbstractVector{<:Integer} = amd(T),
   memory::Int = 0,
   α::Number = 0,
+  α_increase_factor::Number = 10,
 ) where {Tv <: Number, Ti <: Integer, Tf <: Real}
   memory < 0 && error("limited-memory parameter must be nonnegative")
   n = size(T, 1)
   n != size(T, 2) && error("input matrix must be square")
-  return LimitedLDLFactorization(T, P, memory, α, n, nnz(T), Tf)
+  return LimitedLDLFactorization(T, P, memory, Tf(α), Tf(α_increase_factor), n, nnz(T), Tf)
 end
 
 LimitedLDLFactorization(T::SparseMatrixCSC{Tv, Ti}; kwargs...) where {Tv <: Number, Ti <: Integer} =
@@ -198,13 +245,12 @@ function lldl_factorize!(
   n != size(T, 2) && error("input matrix must be square")
 
   colptr = S.colptr
-  Lrowind = S.Lrowind
-  Lnzvals = S.Lnzvals
 
   nnzT = nnz(T)
   nnzT_nodiag = nnzT - S.nnz_diag
   memory = S.memory
   α = S.α
+  α_increase_factor = S.α_increase_factor
 
   P = S.P
   Pinv = S.Pinv
@@ -352,21 +398,25 @@ function lldl_factorize!(
     # Increase shift if the factorization didn't succeed.
     if !factorized
       nb_increase_α += 1
-      α = (α == 0) ? α_min : 2 * α
+      α = (α == 0) ? α_min : α_increase_factor * α
       tired = nb_increase_α > max_increase_α
     end
   end
 
+  S.__factorized = factorized
+
   # Unscale L.
-  @inbounds @simd for col = 1:n
-    scol = s[col]
-    d[col] /= scol * scol
-    @inbounds @simd for k = colptr[col]:(colptr[col + 1] - 1)
-      lvals[k] *= scol / s[rowind[k]]
+  if factorized
+    @inbounds @simd for col = 1:n
+      scol = s[col]
+      d[col] /= scol * scol
+      @inbounds @simd for k = colptr[col]:(colptr[col + 1] - 1)
+        lvals[k] *= scol / s[rowind[k]]
+      end
     end
   end
 
-  S.α = α
+  S.α_out = α
   nz = colptr[end] - 1
   S.Lrowind = view(rowind, 1:nz)
   S.Lnzvals = view(lvals, 1:nz)
@@ -390,9 +440,12 @@ Compute the limited-memory LDLᵀ factorization of `A`.
 - `memory::Int=0`: extra amount of memory to allocate for the incomplete factor `L`.
                    The total memory allocated is nnz(T) + n * `memory`, where
                    `T` is the strict lower triangle of A and `n` is the size of `A`;
-- `α::Tv=Tv(0)`: initial value of the shift in case the incomplete LDLᵀ
+- `α::Number=0`: initial value of the shift in case the incomplete LDLᵀ
                  factorization of `A` is found to not exist. The shift will be
                  gradually increased from this initial value until success;
+- `α_increase_factor::Number = 10`: value by which the shift will be increased after 
+                                    the incomplete LDLᵀ factorization of `T` is found
+                                    to not exist.
 - `droptol::Tv=Tv(0)`: to further sparsify `L`, all elements with magnitude smaller
                        than `droptol` are dropped;
 - `check_tril::Bool = true`: check if `A` is a lower triangular matrix.
@@ -410,12 +463,13 @@ function lldl(
   ::Type{Tf};
   P::AbstractVector{<:Integer} = amd(A),
   memory::Int = 0,
+  droptol::Real = Tv(0),
   α::Number = 0,
-  droptol::Number = 0,
+  α_increase_factor::Number = 10,
   check_tril::Bool = true,
 ) where {Tv <: Number, Ti <: Integer, Tf <: Real}
   T = (!check_tril || istril(A)) ? A : tril(A)
-  S = LimitedLDLFactorization(T, Tf; P = P, memory = memory, α = α)
+  S = LimitedLDLFactorization(T, Tf; P = P, memory = memory, α = α, α_increase_factor = α_increase_factor)
   lldl_factorize!(S, T, droptol = Tf(droptol))
 end
 
@@ -737,14 +791,18 @@ end
 import Base.(\)
 function (\)(LLDL::LimitedLDLFactorization, b::AbstractVector)
   y = copy(b)
+  factorized(LLDL) || throw(LLDLException(error_string))
   lldl_solve!(LLDL.n, y, LLDL.colptr, LLDL.Lrowind, LLDL.Lnzvals, LLDL.D, LLDL.P)
 end
 
 import LinearAlgebra.ldiv!
-ldiv!(LLDL::LimitedLDLFactorization, b::AbstractVector) =
+function ldiv!(LLDL::LimitedLDLFactorization, b::AbstractVector)
+  factorized(LLDL) || throw(LLDLException(error_string))
   lldl_solve!(LLDL.n, b, LLDL.colptr, LLDL.Lrowind, LLDL.Lnzvals, LLDL.D, LLDL.P)
+end
 
 function ldiv!(y::AbstractVector, LLDL::LimitedLDLFactorization, b::AbstractVector)
+  factorized(LLDL) || throw(LLDLException(error_string))
   y .= b
   lldl_solve!(LLDL.n, y, LLDL.colptr, LLDL.Lrowind, LLDL.Lnzvals, LLDL.D, LLDL.P)
 end
