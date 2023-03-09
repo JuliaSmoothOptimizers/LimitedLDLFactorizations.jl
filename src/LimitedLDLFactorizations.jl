@@ -847,7 +847,7 @@ end
 
 import Base.(\)
 (\)(LLDL::LimitedLDLFactorization, b::AbstractVector) = ldiv!(LLDL, copy(b))
-(\)(LLDL::LimitedLDLFactorization, B::AbstractVecOrMat) = ldiv!(LLDL, copy(B))
+(\)(LLDL::LimitedLDLFactorization, B::AbstractMatrix) = ldiv!(LLDL, copy(B))
 
 import LinearAlgebra.ldiv!
 function ldiv!(LLDL::LimitedLDLFactorization, b::AbstractVector)
