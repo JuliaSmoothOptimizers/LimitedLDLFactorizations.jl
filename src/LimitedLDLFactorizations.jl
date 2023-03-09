@@ -769,7 +769,7 @@ function abspermute!(
   end
 end
 
-function lldl_lsolve!(n, x, Lp, Li, Lx)
+function lldl_lsolve!(n, x::AbstractVector, Lp, Li, Lx)
   @inbounds for j = 1:n
     xj = x[j]
     @inbounds for p = Lp[j]:(Lp[j + 1] - 1)
@@ -779,14 +779,14 @@ function lldl_lsolve!(n, x, Lp, Li, Lx)
   return x
 end
 
-function lldl_dsolve!(n, x, D)
+function lldl_dsolve!(n, x::AbstractVector, D)
   @inbounds for j = 1:n
     x[j] /= D[j]
   end
   return x
 end
 
-function lldl_ltsolve!(n, x, Lp, Li, Lx)
+function lldl_ltsolve!(n, x::AbstractVector, Lp, Li, Lx)
   @inbounds for j = n:-1:1
     xj = x[j]
     @inbounds for p = Lp[j]:(Lp[j + 1] - 1)
@@ -797,7 +797,7 @@ function lldl_ltsolve!(n, x, Lp, Li, Lx)
   return x
 end
 
-function lldl_solve!(n, b, Lp, Li, Lx, D, P)
+function lldl_solve!(n, b::AbstractVector, Lp, Li, Lx, D, P)
   @views y = b[P]
   lldl_lsolve!(n, y, Lp, Li, Lx)
   lldl_dsolve!(n, y, D)
@@ -805,23 +805,67 @@ function lldl_solve!(n, b, Lp, Li, Lx, D, P)
   return b
 end
 
-import Base.(\)
-function (\)(LLDL::LimitedLDLFactorization, b::AbstractVector)
-  y = copy(b)
-  factorized(LLDL) || throw(LLDLException(error_string))
-  lldl_solve!(LLDL.n, y, LLDL.colptr, LLDL.Lrowind, LLDL.Lnzvals, LLDL.D, LLDL.P)
+# solve functions for multiple rhs
+function lldl_lsolve!(n, X::AbstractMatrix, Lp, Li, Lx)
+  @inbounds for j = 1:n
+    @inbounds for p = Lp[j]:(Lp[j + 1] - 1)
+      for k ∈ axes(X, 2)
+        X[Li[p], k] -= Lx[p] * X[j, k]
+      end
+    end
+  end
+  return X
 end
+
+function lldl_dsolve!(n, X::AbstractMatrix, D)
+  @inbounds for j = 1:n
+    for k ∈ axes(X, 2)
+      X[j, k] /= D[j]
+    end
+  end
+  return X
+end
+
+function lldl_ltsolve!(n, X::AbstractMatrix, Lp, Li, Lx)
+  @inbounds for j = n:-1:1
+    @inbounds for p = Lp[j]:(Lp[j + 1] - 1)
+      for k ∈ axes(X, 2)
+        X[j, k] -= conj(Lx[p]) * X[Li[p], k]
+      end
+    end
+  end
+  return X
+end
+
+function lldl_solve!(n, B::AbstractMatrix, Lp, Li, Lx, D, P)
+  @views Y = B[P, :]
+  lldl_lsolve!(n, Y, Lp, Li, Lx)
+  lldl_dsolve!(n, Y, D)
+  lldl_ltsolve!(n, Y, Lp, Li, Lx)
+  return B
+end
+
+import Base.(\)
+(\)(LLDL::LimitedLDLFactorization, b::AbstractVector) = ldiv!(LLDL, copy(b))
+(\)(LLDL::LimitedLDLFactorization, B::AbstractVecOrMat) = ldiv!(LLDL, copy(B))
 
 import LinearAlgebra.ldiv!
 function ldiv!(LLDL::LimitedLDLFactorization, b::AbstractVector)
   factorized(LLDL) || throw(LLDLException(error_string))
   lldl_solve!(LLDL.n, b, LLDL.colptr, LLDL.Lrowind, LLDL.Lnzvals, LLDL.D, LLDL.P)
 end
+function ldiv!(LLDL::LimitedLDLFactorization, B::AbstractMatrix)
+  factorized(LLDL) || throw(LLDLException(error_string))
+  lldl_solve!(LLDL.n, B, LLDL.colptr, LLDL.Lrowind, LLDL.Lnzvals, LLDL.D, LLDL.P)
+end
 
 function ldiv!(y::AbstractVector, LLDL::LimitedLDLFactorization, b::AbstractVector)
-  factorized(LLDL) || throw(LLDLException(error_string))
   y .= b
-  lldl_solve!(LLDL.n, y, LLDL.colptr, LLDL.Lrowind, LLDL.Lnzvals, LLDL.D, LLDL.P)
+  ldiv!(LLDL, y)
+end
+function ldiv!(Y::AbstractMatrix, LLDL::LimitedLDLFactorization, B::AbstractMatrix)
+  Y .= B
+  ldiv!(LLDL, Y)
 end
 
 import SparseArrays.nnz

@@ -82,36 +82,45 @@ end
     0 0.01 0 0 0.53 0 0.56 0 0 3.1
   ]
   A = sparse(A)
-  B = tril(A)
+  Al = tril(A)
 
   for perm ∈ (1:(A.n), amd(A), Metis.permutation(A)[1])
-    LLDL = lldl(B, P = perm, memory = 0)
+    LLDL = lldl(Al, P = perm, memory = 0)
     nnzl0 = nnz(LLDL)
     @test nnzl0 == nnz(tril(A))
     @test LLDL.α_out == 0
 
-    LLDL = lldl(B, P = perm, memory = 5)
+    LLDL = lldl(Al, P = perm, memory = 5)
     nnzl5 = nnz(LLDL)
     @test nnzl5 ≥ nnzl0
     @test LLDL.α_out == 0
 
-    LLDL = lldl(B, P = perm, memory = 10)
+    LLDL = lldl(Al, P = perm, memory = 10)
     @test nnz(LLDL) ≥ nnzl5
     @test LLDL.α_out == 0
     L = LLDL.L + I
     @test norm(L * diagm(0 => LLDL.D) * L' - A[perm, perm]) ≤ sqrt(eps()) * norm(A)
 
     sol = ones(A.n)
+    Sol = rand(A.n, 4)
     b = A * sol
+    B = A * Sol # test matrix rhs
     x = LLDL \ b
+    X = LLDL \ B
     @test x ≈ sol
+    @test isapprox(X, Sol, atol = sqrt(eps()))
 
     y = similar(b)
+    Y = similar(B)
     ldiv!(y, LLDL, b)
+    ldiv!(Y, LLDL, B)
     @test y ≈ sol
+    @test isapprox(Y, Sol, atol = sqrt(eps()))
 
     ldiv!(LLDL, b)
+    ldiv!(LLDL, B)
     @test b ≈ sol
+    @test isapprox(B, Sol, atol = sqrt(eps()))
   end
 end
 
@@ -184,8 +193,14 @@ end
   ldiv!(y, LLDL, b)
   @test y ≈ sol
 
+  allocs = @allocated ldiv!(y, LLDL, b)
+  @test allocs == 0
+
   ldiv!(LLDL, b)
   @test b ≈ sol
+
+  allocs = @allocated ldiv!(LLDL, b)
+  @test allocs == 0
 end
 
 @testset "with shift lower triangle" begin
