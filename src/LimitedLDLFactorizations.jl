@@ -1,7 +1,7 @@
 """
 A Pure Julia Version of limited-memory LDLᵀ factorization.
 A left-looking implementation of the sparse LDLᵀ factorization
-of a symmetric matrix with the possibility to compute a
+of a Hermitian matrix with the possibility to compute a
 limited-memory incomplete factorization.
 
 Dominique Orban <dominique.orban@gmail.com>
@@ -26,7 +26,7 @@ export lldl, lldl_factorize!, \, ldiv!, nnz, LimitedLDLFactorization
 using AMD, LinearAlgebra, SparseArrays
 
 mutable struct LimitedLDLFactorization{
-  T <: Real,
+  T <: Number,
   Ti <: Integer,
   V1 <: AbstractVector,
   V2 <: AbstractVector,
@@ -95,7 +95,7 @@ function lldl(
   sA::Symmetric{T, SparseMatrixCSC{T, Ti}},
   args...;
   kwargs...,
-) where {T <: Real, Ti <: Integer}
+) where {T <: Number, Ti <: Integer}
   sA.uplo == 'U' && error("matrix must contain the lower triangle")
   A = sA.data
   lldl(A, args...; kwargs...)
@@ -127,8 +127,9 @@ function LimitedLDLFactorization(
   indf = Vector{Ti}(undef, n)  # indf[col] = position in w of the next entry in column col to be used during the factorization.
   list = zeros(Ti, n)  # list[col] = linked list of columns that will update column col.
 
-  pos = findall(adiag[P] .> Tv(0))
-  neg = findall(adiag[P] .≤ Tv(0))
+  Tr = real(Tv)
+  pos = findall(real.(adiag[P]) .> zero(Tr))
+  neg = findall(real.(adiag[P]) .≤ zero(Tr))
 
   nz = colptr[end] - 1
   Lrowind = view(rowind, 1:nnzLmax)
@@ -161,7 +162,7 @@ end
 """
     LLDL = LimitedLDLFactorization(T, adiag, P; memory = 0, α = 0.0)
 
-Perform the allocations for the LLDL factorization of symmetric matrix whose lower triangle is `T` 
+Perform the allocations for the LLDL factorization of a Hermitian matrix whose lower triangle is `T`
 and diagonal is `d` with the permutation vector `P`.
 
 # Arguments
@@ -195,7 +196,7 @@ end
 """
     lldl_factorize!(S, T, adiag; droptol = 0.0)
 
-Perform the in-place factorization of a symmetric matrix whose lower triangle is `T` and diagonal is `d` 
+Perform the in-place factorization of a Hermitian matrix whose lower triangle is `T` and diagonal is `d`
 with the permutation vector.
 
 # Arguments
@@ -214,8 +215,8 @@ function lldl_factorize!(
   adiag::AbstractVector{Tv};
   droptol::Tv = Tv(0),
 ) where {Tv <: Number, Ti <: Integer}
-  n = size(T, 1)
-  n != size(T, 2) && error("input matrix must be square")
+  n, m = size(T)
+  n != m && error("input matrix must be square")
   n != length(adiag) && error("inconsistent size of diagonal")
 
   colptr = S.colptr
@@ -248,7 +249,7 @@ function lldl_factorize!(
     s[col] = Tv(1) # Initialization
     @inbounds @simd for k = T.colptr[col]:(T.colptr[col + 1] - 1)
       val = T.nzval[k]
-      val2 = val * val
+      val2 = val * conj(val)
       wa1[Pinv[col]] += val2  # Contribution to column Pinv[col].
       wa1[Pinv[T.rowval[k]]] += val2  # Contribution to column Pinv[T.rowval[k]].
     end
@@ -256,14 +257,14 @@ function lldl_factorize!(
 
   @inbounds @simd for col = 1:n
     dpcol = adiag[P[col]]
-    wa1[col] += dpcol * dpcol
+    wa1[col] += dpcol * dpcol  # A is hermitian and its diagonal must be real
     wa1[col] = sqrt(wa1[col])
-    wa1[col] > 0 && (s[col] = 1 / sqrt(wa1[col]))
+    real(wa1[col]) > 0 && (s[col] = 1 / sqrt(wa1[col]))
   end
 
   # Set initial shift. Keep it at zero if possible.
   α_min = 1.0e-3
-  if α > 0
+  if real(α) > 0
     α = max(α, α_min)
   end
   max_increase_α = 3
@@ -327,12 +328,12 @@ function lldl_factorize!(
     @inbounds for col = 1:n
       pinvcol = Pinv[col]
       scol = s[pinvcol]
-      d[pinvcol] = adiag[col] * scol * scol
+      d[pinvcol] = adiag[col] * scol * conj(scol)
       @inbounds for k = T.colptr[col]:(T.colptr[col + 1] - 1)
         row = Pinv[T.rowval[k]]
         q = indr[min(row, pinvcol)]
         rowind[q] = max(row, pinvcol)
-        lvals[q] = T.nzval[k] * scol * s[row]
+        lvals[q] = T.nzval[k] * scol * conj(s[row])
         indr[min(row, pinvcol)] += one(Ti)
       end
     end
@@ -370,7 +371,7 @@ function lldl_factorize!(
   # Unscale L.
   @inbounds @simd for col = 1:n
     scol = s[col]
-    d[col] /= scol * scol
+    d[col] /= scol * conj(scol)
     @inbounds @simd for k = colptr[col]:(colptr[col + 1] - 1)
       lvals[k] *= scol / s[rowind[k]]
     end
@@ -410,7 +411,7 @@ function attempt_lldl!(
 ) where {Ti <: Integer, Tv <: Number}
   n = size(d, 1)
   np = n * memory
-  droptol = max(0, droptol)
+  droptol = max(0, real(droptol))
 
   # Make room for L.
   @inbounds @simd for col = 1:(n + 1)
@@ -470,7 +471,7 @@ function attempt_lldl!(
       # Perform the update L[row, col] <- L[row, col] - D[k, k] * L[col, k] * L[row, k].
       @inbounds for i = kth_col_start:kth_col_end
         row = rowind[i]
-        dli = dl * lvals[i]
+        dli = dl * conj(lvals[i])
         if indf[row] != 0
           w[row] += dli  # w[row] = L[row, col], lval = L[col, k], lvals[i] = L[row, k].
         else
@@ -487,7 +488,7 @@ function attempt_lldl!(
     # Compute (incomplete) column col of L.
     @inbounds @simd for k = 1:nzcol
       w[indr[k]] /= dcol
-      # d[row] -= d[col] * w[row] * w[row];  # Variant I.
+      # d[row] -= d[col] * w[row] * w̄[row];  # Variant I.
     end
 
     nz_to_keep = min(col_end - col_start + one(Ti) + memory, nzcol)
@@ -523,7 +524,7 @@ function attempt_lldl!(
     @inbounds @simd for k = kth:nzcol
       k1 = indr[k]
       wk1 = w[k1]
-      d[k1] -= dcol * wk1 * wk1
+      d[k1] -= dcol * wk1 * conj(wk1)
     end
 
     if new_col_start < new_col_end
@@ -678,7 +679,7 @@ function lldl_ltsolve!(n, x, Lp, Li, Lx)
   @inbounds for j = n:-1:1
     xj = x[j]
     @inbounds for p = Lp[j]:(Lp[j + 1] - 1)
-      xj -= Lx[p] * x[Li[p]]
+      xj -= conj(Lx[p]) * x[Li[p]]
     end
     x[j] = xj
   end
@@ -697,7 +698,7 @@ import Base.(\)
 function (\)(
   LLDL::LimitedLDLFactorization{T, Ti},
   b::AbstractVector{T},
-) where {T <: Real, Ti <: Integer}
+) where {T <: Number, Ti <: Integer}
   y = copy(b)
   lldl_solve!(LLDL.n, y, LLDL.colptr, LLDL.Lrowind, LLDL.Lnzvals, LLDL.D, LLDL.P)
 end
@@ -706,20 +707,20 @@ import LinearAlgebra.ldiv!
 @inline ldiv!(
   LLDL::LimitedLDLFactorization{T, Ti},
   b::AbstractVector{T},
-) where {T <: Real, Ti <: Integer} =
+) where {T <: Number, Ti <: Integer} =
   lldl_solve!(LLDL.n, b, LLDL.colptr, LLDL.Lrowind, LLDL.Lnzvals, LLDL.D, LLDL.P)
 
 function ldiv!(
   y::AbstractVector{T},
   LLDL::LimitedLDLFactorization{T, Ti},
   b::AbstractVector{T},
-) where {T <: Real, Ti <: Integer}
+) where {T <: Number, Ti <: Integer}
   y .= b
   lldl_solve!(LLDL.n, y, LLDL.colptr, LLDL.Lrowind, LLDL.Lnzvals, LLDL.D, LLDL.P)
 end
 
 import SparseArrays.nnz
-@inline nnz(LLDL::LimitedLDLFactorization{T, Ti}) where {T <: Real, Ti <: Integer} =
+@inline nnz(LLDL::LimitedLDLFactorization{T, Ti}) where {T <: Number, Ti <: Integer} =
   length(LLDL.Lrowind) + length(LLDL.D)
 
 @inline function Base.getproperty(LLDL::LimitedLDLFactorization, prop::Symbol)
