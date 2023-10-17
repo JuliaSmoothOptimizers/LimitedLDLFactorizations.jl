@@ -7,7 +7,7 @@ jobs:
   bmark:
     name: Julia ${{ matrix.version }} - macOS - ${{ matrix.arch }} - ${{ github.event_name }}
     if: contains(github.event.pull_request.labels.*.name, 'benchmarks')
-    runs-on: self-hosted
+    runs-on: [self-hosted, macOS]
     strategy:
       fail-fast: false
       matrix:
