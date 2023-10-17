@@ -30,11 +30,10 @@ for subdir ∈ subdirs
       A = MatrixMarket.mmread(joinpath(iterpath, "K_$(iter).mtx"))
       b = readdlm(joinpath(iterpath, "rhs_$(iter).rhs"), Float64)[:]
       n = size(A, 1)
-      L = tril(A, -1)
-      D = diag(A)
-      P = collect(1:n)
-      SUITE["LLDL"][name] = @benchmarkable lldl($L, $D, $P)
-      lldlt = lldl(L, D, P)
+      L = tril(A)
+      P = 1:n
+      SUITE["LLDL"][name] = @benchmarkable lldl($L, P = $P)
+      lldlt = lldl(L, P = P)
       y = similar(b)
       SUITE["LDIV"][name] = @benchmarkable ldiv!($y, $lldlt, $b)
     end
