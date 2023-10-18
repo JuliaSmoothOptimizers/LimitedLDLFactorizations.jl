@@ -11,13 +11,13 @@ const sqd_hash = artifact_hash("sqdcollection", artifact_toml)
 const sqd_path = joinpath(artifact_path(sqd_hash), "sqd-collection-0.1")
 
 subdirs = readdir(sqd_path)
-const formulations = ("2x2", "3x3")
-const iters = (0, 5, 10)
+const formulations = ("2x2",)  # , "3x3")
+const iters = (0,)  #, 5, 10)
 
 const SUITE = BenchmarkGroup()
 
 SUITE["LLDL"] = BenchmarkGroup()
-SUITE["LDIV"] = BenchmarkGroup()
+# SUITE["LDIV"] = BenchmarkGroup()
 
 for subdir ∈ subdirs
   subdir == ".git" && continue
@@ -33,9 +33,9 @@ for subdir ∈ subdirs
       L = tril(A)
       P = 1:n
       SUITE["LLDL"][name] = @benchmarkable lldl($L, P = $P)
-      lldlt = lldl(L, P = P)
-      y = similar(b)
-      SUITE["LDIV"][name] = @benchmarkable ldiv!($y, $lldlt, $b)
+      # lldlt = lldl(L, P = P)
+      # y = similar(b)
+      # SUITE["LDIV"][name] = @benchmarkable ldiv!($y, $lldlt, $b)
     end
   end
 end
