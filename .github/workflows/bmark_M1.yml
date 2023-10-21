@@ -26,6 +26,11 @@ jobs:
         run: julia --project=benchmark -e 'using Pkg; Pkg.instantiate()'
       - name: Run benchmarks
         run: julia --project=benchmark benchmark/run_benchmarks.jl ${{ github.event.repository.name }}
+      - name: Post results in in PR
+        uses: thollander/actions-comment-pull-request@v2
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          filePath: ${{ github.sha }}.json
       - name: Upload artifacts
         uses: actions/upload-artifact@v2
         with:
