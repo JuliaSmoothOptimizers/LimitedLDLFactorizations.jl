@@ -52,10 +52,11 @@ file_num = 1
 for k ∈ keys(judgement_stats)
   global file_num
   k_stats = Dict{Symbol, DataFrame}(:commit => commit_stats[k], :main => main_stats[k])
-  save_stats(k_stats, "ldl_$(bmarkname)_vs_main_$(k).jld2", force = true)
+  save_stats(k_stats, "$(bmarkname)_vs_main_$(k).jld2", force = true)
 
   k_profile = profile_solvers_from_pkgbmark(k_stats)
-  savefig("profiles_commit_vs_main_$(k).svg")
+  savefig("profiles_commit_vs_main_$(k).svg")  # for the artefacts
+  savefig("profiles_commit_vs_main_$(k).png")  # for the markdown summary
   # read contents of svg file to add to gist
   k_svgfile = open("profiles_commit_vs_main_$(k).svg", "r") do fd
     readlines(fd)
@@ -72,7 +73,7 @@ for mdfile ∈ [:judgement, :main, :commit]
   file_num += 1
 end
 
-jldopen("ldl_$(bmarkname)_vs_main_judgement.jld2", "w") do file
+jldopen("$(bmarkname)_vs_main_judgement.jld2", "w") do file
   file["jstats"] = judgement_stats
 end
 
@@ -85,4 +86,26 @@ json_dict = Dict{String, Any}(
 
 open("$(bmarkname).json", "w") do f
   JSON.print(f, json_dict)
+end
+
+function write_md(io::IO, title::AbstractString, results)
+    write(io, "<details>")
+    write(io, "<summary>$(title)</summary>")
+    write(io, "<br>")
+    write(io, sprintf(export_markdown, results))
+    write(io, "</details>")
+end
+
+# simpler markdown summary to post in pull request
+open("$(bmarkname).md", "w") do f
+    write(f, "### Benchmark results")
+    for k ∈ keys(judgement_stats)
+        write(f, "![$(k) profiles](profiles_commit_vs_main_$(k).png string(k))")
+        write(f, "<br>")
+    end
+    write_md(f, "Judgement", judgement)
+    write(f, "<br>")
+    write_md(f, "Commit", commit)
+    write(f, "<br>")
+    write_md(f, "Main", main)
 end
