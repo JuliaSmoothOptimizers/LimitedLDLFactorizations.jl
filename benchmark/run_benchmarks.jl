@@ -92,7 +92,7 @@ function write_md(io::IO, title::AbstractString, results)
     write(io, "<details>")
     write(io, "<summary>$(title)</summary>")
     write(io, "<br>")
-    write(io, sprintf(export_markdown, results))
+    write(io, sprint(export_markdown, results))
     write(io, "</details>")
 end
 
