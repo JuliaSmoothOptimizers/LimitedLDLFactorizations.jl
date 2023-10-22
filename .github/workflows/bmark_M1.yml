@@ -36,6 +36,8 @@ jobs:
         with:
           name: benchmarks
           path: |
-            *.svg
-            *.jld2
-            *.json
+            profiles_commit_vs_main_*.svg
+            *_vs_main_*.jld2
+            main.md
+            ${{ github.sha }}.md
+            judgement_${{ github.sha }}.md
