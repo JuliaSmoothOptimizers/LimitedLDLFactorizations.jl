@@ -89,23 +89,23 @@ open("$(bmarkname).json", "w") do f
 end
 
 function write_md(io::IO, title::AbstractString, results)
-    write(io, "<details>")
-    write(io, "<summary>$(title)</summary>")
-    write(io, "<br>")
-    write(io, sprint(export_markdown, results))
-    write(io, "</details>")
+    println(io, "<details>")
+    println(io, "<summary>$(title)</summary>")
+    println(io, "<br>")
+    println(io, sprint(export_markdown, results))
+    println(io, "</details>")
 end
 
 # simpler markdown summary to post in pull request
 open("$(bmarkname).md", "w") do f
-    write(f, "### Benchmark results")
+    println(f, "### Benchmark results")
     for k ∈ keys(judgement_stats)
-        write(f, "![$(k) profiles](profiles_commit_vs_main_$(k).png string(k))")
-        write(f, "<br>")
+        println(f, "![$(k) profiles](profiles_commit_vs_main_$(k).png $(string(k)))")
+        println(f, "<br>")
     end
     write_md(f, "Judgement", judgement)
-    write(f, "<br>")
+    println(f, "<br>")
     write_md(f, "Commit", commit)
-    write(f, "<br>")
+    println(f, "<br>")
     write_md(f, "Main", main)
 end
