@@ -95,7 +95,8 @@ json_dict = Dict{String, Any}(
   "gist_id" => gist_id,
 )
 
-open("$(bmarkname).json", "w") do f
+const gist_json = "$(bmarkname).json"
+open(gist_json, "w") do f
   JSON.print(f, json_dict)
 end
 
@@ -114,7 +115,7 @@ function create_gist_from_json_file(gistfile = "gist.json")
   return create_gist_from_json_dict(gist)
 end
 
-posted_gist = create_gist_from_json_dict(json_dict)
+posted_gist = create_gist_from_json_file(gist_json)
 
 function write_md(io::IO, title::AbstractString, results)
     println(io, "<details>")
