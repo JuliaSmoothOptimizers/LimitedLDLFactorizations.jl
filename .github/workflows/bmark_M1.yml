@@ -25,12 +25,12 @@ jobs:
       - name: Install benchmark dependencies
         run: julia --project=benchmark -e 'using Pkg; Pkg.instantiate()'
       - name: Run benchmarks
-        run: julia --project=benchmark benchmark/run_benchmarks.jl ${{ github.event.repository.name }}
+        run: julia --project=benchmark benchmark/run_benchmarks.jl ${{ github.event.repository.name }} ${{ secrets.BMARK_GIST_URL }}
       - name: Post benchmark results in PR
         uses: thollander/actions-comment-pull-request@v2
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          filePath: ${{ github.sha }}.md
+          message: "Full benchmark results stored as artifacts. Summary: ${{ secrets.BMARK_GIST_URL }}"
       - name: Upload artifacts
         uses: actions/upload-artifact@v2
         with:

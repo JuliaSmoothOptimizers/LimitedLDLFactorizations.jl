@@ -1,3 +1,7 @@
+# use: run_benchmarks.jl repository_name gist_url
+#
+# example: run_benchmarks.jl LimitedLDLFactorizations.jl https://gist.github.com/dpo/911c1e3b9d341d5cddb61deb578d8ed3
+
 using Pkg
 bmark_dir = @__DIR__
 println(@__DIR__)
@@ -5,8 +9,10 @@ Pkg.activate(bmark_dir)
 Pkg.instantiate()
 repo_name = string(split(ARGS[1], ".")[1])
 bmarkname = lowercase(repo_name)
-using Git
+gist_url = ARGS[2]
+gist_id = split(gist_url, "/")[end]
 
+using Git
 const git = Git.git()
 
 # if we are running these benchmarks from the git repository
@@ -50,13 +56,16 @@ end
 files_dict = Dict{String, Any}()
 file_num = 1
 for k ∈ keys(judgement_stats)
+  # k is the name of a benchmark suite
   global file_num
   k_stats = Dict{Symbol, DataFrame}(:commit => commit_stats[k], :main => main_stats[k])
+
+  # save benchmark data to jld2 file
   save_stats(k_stats, "$(bmarkname)_vs_main_$(k).jld2", force = true)
 
   k_profile = profile_solvers_from_pkgbmark(k_stats)
   savefig("profiles_commit_vs_main_$(k).svg")  # for the artefacts
-  savefig("profiles_commit_vs_main_$(k).png")  # for the markdown summary
+  # savefig("profiles_commit_vs_main_$(k).png")  # for the markdown summary
   # read contents of svg file to add to gist
   k_svgfile = open("profiles_commit_vs_main_$(k).svg", "r") do fd
     readlines(fd)
@@ -73,6 +82,7 @@ for mdfile ∈ [:judgement, :main, :commit]
   file_num += 1
 end
 
+# save judgement data to jld2 file
 jldopen("$(bmarkname)_vs_main_judgement.jld2", "w") do file
   file["jstats"] = judgement_stats
 end
@@ -82,11 +92,29 @@ json_dict = Dict{String, Any}(
   "description" => "$(repo_name) repository benchmark",
   "public" => true,
   "files" => files_dict,
+  "gist_id" => gist_id,
 )
 
 open("$(bmarkname).json", "w") do f
   JSON.print(f, json_dict)
 end
+
+function create_gist_from_json_dict(json_dict)
+  myauth = GitHub.authenticate(ENV["GITHUB_AUTH"])
+  posted_gist = create_gist(params = gist, auth = myauth)
+  return posted_gist
+end
+
+function create_gist_from_json_file(gistfile = "gist.json")
+  gist = begin
+    open(gistfile, "r") do f
+      return JSON.parse(f)
+    end
+  end
+  return create_gist_from_json_dict(gist)
+end
+
+posted_gist = create_gist_from_json_dict(json_dict)
 
 function write_md(io::IO, title::AbstractString, results)
     println(io, "<details>")
@@ -100,6 +128,7 @@ end
 open("$(bmarkname).md", "w") do f
     println(f, "### Benchmark results")
     for k ∈ keys(judgement_stats)
+        # TODO: missing a URL for the png
         println(f, "![$(k) profiles](profiles_commit_vs_main_$(k).png $(string(k)))")
         println(f, "<br>")
     end
