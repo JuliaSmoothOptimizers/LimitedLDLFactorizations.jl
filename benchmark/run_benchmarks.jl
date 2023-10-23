@@ -115,7 +115,9 @@ function create_gist_from_json_file(gistfile = "gist.json")
   return create_gist_from_json_dict(json_dict)
 end
 
-posted_gist = create_gist_from_json_file(gist_json)
+posted_gist = create_gist_from_json_dict(json_dict)
+println("got gist id ", gist_id)
+println("posted to gist ", posted_gist.html_url)
 
 function write_md(io::IO, title::AbstractString, results)
     println(io, "<details>")
