@@ -102,17 +102,17 @@ end
 
 function create_gist_from_json_dict(json_dict)
   myauth = GitHub.authenticate(ENV["GITHUB_AUTH"])
-  posted_gist = create_gist(params = gist, auth = myauth)
+  posted_gist = create_gist(params = json_dict, auth = myauth)
   return posted_gist
 end
 
 function create_gist_from_json_file(gistfile = "gist.json")
-  gist = begin
+  json_dict = begin
     open(gistfile, "r") do f
       return JSON.parse(f)
     end
   end
-  return create_gist_from_json_dict(gist)
+  return create_gist_from_json_dict(json_dict)
 end
 
 posted_gist = create_gist_from_json_file(gist_json)
