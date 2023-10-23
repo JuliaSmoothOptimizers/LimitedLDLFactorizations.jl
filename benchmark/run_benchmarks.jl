@@ -115,9 +115,23 @@ function create_gist_from_json_file(gistfile = "gist.json")
   return create_gist_from_json_dict(json_dict)
 end
 
-posted_gist = create_gist_from_json_dict(json_dict)
-println("got gist id ", gist_id)
-println("posted to gist ", posted_gist.html_url)
+function update_gist_from_json_dict(gist_id, json_dict)
+  myauth = GitHub.authenticate(ENV["GITHUB_AUTH"])
+  existing_gist = gist(gist_id)
+  return edit_gist(existing_gist, params = json_dict, auth = myauth)
+end
+
+function update_gist_from_json_file(gist_id, gistfile = "gist.json")
+  json_dict = begin
+    open(gistfile, "r") do f
+      return JSON.parse(f)
+    end
+  end
+  return update_gist_from_json_dict(gist_id, json_dict)
+end
+
+# posted_gist = create_gist_from_json_dict(json_dict)
+update_gist_from_json_dict(gist_id, json_dict)
 
 function write_md(io::IO, title::AbstractString, results)
     println(io, "<details>")
