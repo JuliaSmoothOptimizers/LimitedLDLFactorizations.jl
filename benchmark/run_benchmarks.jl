@@ -2,14 +2,7 @@
 #
 # example: run_benchmarks.jl LimitedLDLFactorizations.jl https://gist.github.com/dpo/911c1e3b9d341d5cddb61deb578d8ed3
 
-const bmark_dir = @__DIR__
-
-using Pkg
-Pkg.activate(bmark_dir)
-Pkg.instantiate()
-
 const repo_name = string(split(ARGS[1], ".")[1])
-const bmarkname = lowercase(repo_name)
 const gist_url = ARGS[2]
 const gist_id = split(gist_url, "/")[end]
 const reference_branch = length(ARGS) > 2 ? ARGS[3] : "reference"
@@ -19,10 +12,18 @@ const git = Git.git()
 
 # if we are running these benchmarks from the git repository
 # we want to develop the package instead of using the release
-if isdir(joinpath(bmark_dir, "..", ".git"))
+using Pkg
+const bmark_dir = @__DIR__
+const isgit = isdir(joinpath(bmark_dir, "..", ".git"))
+if isgit
   Pkg.develop(PackageSpec(url = joinpath(bmark_dir, "..")))
-  bmarkname = readchomp(`$git rev-parse HEAD`)  # sha of HEAD
+else
+  Pkg.activate(bmark_dir)
+  Pkg.instantiate()
 end
+
+# name the benchmark after the repo or the sha of HEAD
+const bmarkname = isgit ? readchomp(`$git rev-parse HEAD`) : lowercase(repo_name)
 
 using DataFrames
 using GitHub
