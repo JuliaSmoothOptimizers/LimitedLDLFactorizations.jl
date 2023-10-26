@@ -25,7 +25,7 @@ jobs:
       - name: Install benchmark dependencies
         run: julia --project=benchmark -e 'using Pkg; Pkg.instantiate()'
       - name: Run benchmarks
-        run: julia --project=benchmark benchmark/run_benchmarks.jl ${{ github.event.repository.name }} ${{ secrets.BMARK_GIST_URL }}
+        run: julia --project=benchmark benchmark/run_benchmarks.jl ${{ github.event.repository.name }} ${{ secrets.BMARK_GIST_URL }} bmark-workflow
         env:
           GITHUB_AUTH: ${{ secrets.GIST_TOKEN }}
       - name: Post benchmark results in PR

@@ -5,7 +5,7 @@
 const repo_name = string(split(ARGS[1], ".")[1])
 const gist_url = ARGS[2]
 const gist_id = split(gist_url, "/")[end]
-const reference_branch = length(ARGS) > 2 ? ARGS[3] : "reference"
+const reference_branch = length(ARGS) > 2 ? ARGS[3] : "main"
 
 using Git
 const git = Git.git()
