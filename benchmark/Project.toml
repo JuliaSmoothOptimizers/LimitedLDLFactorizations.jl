@@ -1,5 +1,6 @@
 [deps]
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+JSOBenchmarks = "9410e2bb-e8e7-4fa0-9768-685b196f59b5"
 LimitedLDLFactorizations = "f5a24dde-3ab7-510b-b81b-6a72c6098d3b"
 MatrixMarket = "4d4711f2-db25-561a-b6b3-d35e7d4047d3"
 PkgBenchmark = "32113eaa-f34f-5b0d-bd6c-c81e245fc73d"
