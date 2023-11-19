@@ -36,7 +36,7 @@ jobs:
         uses: mad9000/actions-find-and-replace-string@3
         with:
           source: ${{ github.even.repository_name }}
-          find: '.jl'
+          find: '\.jl'
           replace: ''
       - name: Run benchmarks
         run: julia --project=benchmark -e 'using JSOBenchmarks; run_benchmarks("${{ steps.sanitize.outputs.value }}", "benchmark", reference_branch = "bmark-workflow")'
