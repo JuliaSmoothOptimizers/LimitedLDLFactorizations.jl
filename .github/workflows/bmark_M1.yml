@@ -39,7 +39,7 @@ jobs:
           find: '\.jl'
           replace: ''
       - name: Run benchmarks
-        run: julia --project=benchmark -e 'using JSOBenchmarks; run_benchmarks("${{ steps.sanitize.outputs.value }}", "benchmark", reference_branch = "bmark-workflow")'
+        run: julia --project=benchmark -e 'using JSOBenchmarks; run_benchmarks("${{ steps.sanitize.outputs.result }}", "benchmark", reference_branch = "bmark-workflow")'
         env:
           GITHUB_AUTH: ${{ secrets.GIST_TOKEN }}
       # - name: Post benchmark results in PR
