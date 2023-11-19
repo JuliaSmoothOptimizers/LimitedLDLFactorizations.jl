@@ -33,11 +33,8 @@ jobs:
         run: julia --project=benchmark -e 'using Pkg; Pkg.instantiate()'
       - name: Sanitize project name
         id: sanitize
-        uses: mad9000/actions-find-and-replace-string@3
-        with:
-          source: ${{ github.even.repository_name }}
-          find: '\.jl'
-          replace: ''
+        run:
+          echo "${{ github.even.repository_name }}" | sed -e 's/\.jl$//'
       - name: Run benchmarks
         run: julia --project=benchmark -e 'using JSOBenchmarks; run_benchmarks("${{ steps.sanitize.outputs.result }}", "benchmark", reference_branch = "bmark-workflow")'
         env:
