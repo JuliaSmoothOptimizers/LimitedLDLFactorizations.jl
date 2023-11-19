@@ -34,7 +34,7 @@ jobs:
       - name: Sanitize project name
         id: sanitize
         run:
-          echo "${{ github.even.repository_name }}" | sed -e 's/\.jl$//'
+          echo "${{ github.event.repository_name }}" | sed -e 's/\.jl$//'
       - name: Run benchmarks
         run: julia --project=benchmark -e 'using JSOBenchmarks; run_benchmarks("${{ steps.sanitize.outputs.result }}", "benchmark", reference_branch = "bmark-workflow")'
         env:
