@@ -52,7 +52,7 @@ jobs:
           result-encoding: string
           script: |
             const fs = require('fs');
-            return "### Benchmark Summary\n\n" + fs.readFileSync("${{ github.workspace }}/${{ github.sha }}.md", "utf8").toString();
+            return fs.readFileSync("${{ github.workspace }}/${{ github.sha }}.md", "utf8").toString();
       - name: Comment in PR
         uses: thollander/actions-comment-pull-request@v2
         with:
