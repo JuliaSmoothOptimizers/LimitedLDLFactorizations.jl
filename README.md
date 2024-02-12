@@ -10,7 +10,7 @@
 A Port of LLDL to Julia.
 See https://github.com/optimizers/lldl.
 
-Please cite this repository if you use LimitedLDLFactorizations.jl in your work: see [`CITATION.bib`](https://github.com/JuliaSmoothOptimizers/LimitedLDLFactorizations.jl/blob/main/CITATION.bib).
+Please cite this repository if you use LimitedLDLFactorizations.jl in your work: see [`CITATION.cff`](https://github.com/JuliaSmoothOptimizers/LimitedLDLFactorizations.jl/blob/main/CITATION.cff).
 
 LimitedLDLFactorizations is a limited-memory LDLᵀ factorization for symmetric matrices.
 Given a symmetric matrix A, we search for a unit lower triangular L, a
