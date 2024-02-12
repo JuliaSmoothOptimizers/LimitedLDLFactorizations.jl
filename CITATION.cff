@@ -3,7 +3,7 @@
 
 cff-version: 1.2.0
 title: >-
-  'LimitedLDLFactorizations.jl: Limited-Memory $LDL^T$ Factorization'
+  LimitedLDLFactorizations.jl: Limited-Memory $LDL^T$ Factorization
 message: >-
   If you use this software, please cite it using the
   metadata from this file.
