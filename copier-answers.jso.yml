@@ -1,0 +1,8 @@
+PackageName: "LimitedLDLFactorizations"
+PackageOwner: "JuliaSmoothOptimizers"
+PackageUUID: "f5a24dde-3ab7-510b-b81b-6a72c6098d3b"
+_src_path: "https://github.com/JuliaSmoothOptimizers/JSOBestieTemplate.jl"
+_commit: "v0.13.0"
+AddBreakage: true
+AddBenchmark: false
+AddBenchmarkCI: true
