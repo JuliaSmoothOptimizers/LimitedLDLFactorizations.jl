@@ -40,7 +40,7 @@ end
 const error_string = "LLDL factorization was not computed or failed"
 
 mutable struct LimitedLDLFactorization{
-  T <: Real,
+  T <: Number,
   Ti <: Integer,
   V1 <: AbstractVector,
   V2 <: AbstractVector,
@@ -90,7 +90,7 @@ factorized(LLDL::LimitedLDLFactorization) = LLDL.__factorized
 
 Updates the shift `α` of the `LimitedLDLFactorization` object `LLDL`.
 """
-function update_shift!(LLDL::LimitedLDLFactorization{T}, α::T) where {T <: Real}
+function update_shift!(LLDL::LimitedLDLFactorization{T}, α::T) where {T <: Number}
   LLDL.α = α
   LLDL
 end
@@ -104,7 +104,7 @@ by which the shift `α` will be increased each time a `attempt_lldl!` fails.
 function update_shift_increase_factor!(
   LLDL::LimitedLDLFactorization{T},
   α_increase_factor::Number,
-) where {T <: Real}
+) where {T <: Number}
   LLDL.α_increase_factor = T(α_increase_factor)
   LLDL
 end
@@ -118,7 +118,7 @@ function LimitedLDLFactorization(
   n::Int,
   nnzT::Int,
   ::Type{Tf},
-) where {Tv <: Number, Ti, Tf <: Real}
+) where {Tv <: Number, Ti, Tf <: Number}
   np = n * memory
   Pinv = similar(P)
 
@@ -220,7 +220,7 @@ function LimitedLDLFactorization(
   memory::Int = 0,
   α::Number = 0,
   α_increase_factor::Number = 10,
-) where {Tv <: Number, Ti <: Integer, Tf <: Real}
+) where {Tv <: Number, Ti <: Integer, Tf <: Number}
   memory < 0 && error("limited-memory parameter must be nonnegative")
   n = size(T, 1)
   n != size(T, 2) && error("input matrix must be square")
@@ -473,11 +473,11 @@ function lldl(
   ::Type{Tf};
   P::AbstractVector{<:Integer} = amd(A),
   memory::Int = 0,
-  droptol::Real = Tv(0),
+  droptol::Number = Tv(0),
   α::Number = 0,
   α_increase_factor::Number = 10,
   check_tril::Bool = true,
-) where {Tv <: Number, Ti <: Integer, Tf <: Real}
+) where {Tv <: Number, Ti <: Integer, Tf <: Number}
   T = (!check_tril || istril(A)) ? A : tril(A)
   S = LimitedLDLFactorization(
     T,
