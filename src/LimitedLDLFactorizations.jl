@@ -845,31 +845,21 @@ function lldl_solve!(n, B::AbstractMatrix, Lp, Li, Lx, D, P)
   return B
 end
 
-import Base.(\)
-(\)(LLDL::LimitedLDLFactorization, b::AbstractVector) = ldiv!(LLDL, copy(b))
-(\)(LLDL::LimitedLDLFactorization, B::AbstractMatrix) = ldiv!(LLDL, copy(B))
-
-import LinearAlgebra.ldiv!
-function ldiv!(LLDL::LimitedLDLFactorization, b::AbstractVector)
+function _ldiv!(LLDL::LimitedLDLFactorization, b)
   factorized(LLDL) || throw(LLDLException(error_string))
   lldl_solve!(LLDL.n, b, LLDL.colptr, LLDL.Lrowind, LLDL.Lnzvals, LLDL.D, LLDL.P)
 end
-function ldiv!(LLDL::LimitedLDLFactorization, B::AbstractMatrix)
-  factorized(LLDL) || throw(LLDLException(error_string))
-  lldl_solve!(LLDL.n, B, LLDL.colptr, LLDL.Lrowind, LLDL.Lnzvals, LLDL.D, LLDL.P)
-end
+LinearAlgebra.ldiv!(LLDL::LimitedLDLFactorization, b)    = _ldiv!(LLDL, b)
 
-function ldiv!(y::AbstractVector, LLDL::LimitedLDLFactorization, b::AbstractVector)
+function _ldiv!(y, LLDL::LimitedLDLFactorization, b)
   y .= b
   ldiv!(LLDL, y)
 end
-function ldiv!(Y::AbstractMatrix, LLDL::LimitedLDLFactorization, B::AbstractMatrix)
-  Y .= B
-  ldiv!(LLDL, Y)
-end
+LinearAlgebra.ldiv!(y, LLDL::LimitedLDLFactorization, b) = _ldiv!(y, LLDL, b)
 
-import SparseArrays.nnz
-nnz(LLDL::LimitedLDLFactorization) = length(LLDL.Lrowind) + length(LLDL.D)
+Base.:\(LLDL::LimitedLDLFactorization, b) = ldiv!(LLDL, copy(b))
+
+SparseArrays.nnz(LLDL::LimitedLDLFactorization) = length(LLDL.Lrowind) + length(LLDL.D)
 
 function Base.getproperty(LLDL::LimitedLDLFactorization, prop::Symbol)
   if prop == :L
