@@ -46,9 +46,7 @@ using AMD, Metis, LimitedLDLFactorizations
 
       ldiv!(LLDL, b)
       @test b ≈ sol
-
     end
-
   end
 end
 

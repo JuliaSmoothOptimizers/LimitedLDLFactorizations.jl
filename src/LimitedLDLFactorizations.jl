@@ -849,7 +849,7 @@ function _ldiv!(LLDL::LimitedLDLFactorization, b)
   factorized(LLDL) || throw(LLDLException(error_string))
   lldl_solve!(LLDL.n, b, LLDL.colptr, LLDL.Lrowind, LLDL.Lnzvals, LLDL.D, LLDL.P)
 end
-LinearAlgebra.ldiv!(LLDL::LimitedLDLFactorization, b)    = _ldiv!(LLDL, b)
+LinearAlgebra.ldiv!(LLDL::LimitedLDLFactorization, b) = _ldiv!(LLDL, b)
 
 function _ldiv!(y, LLDL::LimitedLDLFactorization, b)
   y .= b
