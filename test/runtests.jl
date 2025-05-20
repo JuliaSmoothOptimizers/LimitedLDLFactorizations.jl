@@ -35,17 +35,20 @@ using AMD, Metis, LimitedLDLFactorizations
     L = LLDL.L + I
     @test norm(L * diagm(0 => LLDL.D) * L' - A[perm, perm]) ≤ sqrt(eps()) * norm(A)
 
-    sol = ones(A.n)
-    b = A * sol
-    x = LLDL \ b
-    @test x ≈ sol
+    for sol in (ones(A.n), ones(A.n, 3)) # testing Vector{Float64} and Matrix{Float64} RHS
+      b = A * sol
+      x = LLDL \ b
+      @test x ≈ sol
 
-    y = similar(b)
-    ldiv!(y, LLDL, b)
-    @test y ≈ sol
+      y = similar(b)
+      ldiv!(y, LLDL, b)
+      @test y ≈ sol
 
-    ldiv!(LLDL, b)
-    @test b ≈ sol
+      ldiv!(LLDL, b)
+      @test b ≈ sol
+
+    end
+
   end
 end
 
