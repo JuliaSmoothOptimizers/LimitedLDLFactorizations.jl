@@ -5,7 +5,7 @@ using AMD, Metis
 # Warmup
 A = sprand(10, 10, 0.5);
 A = A * A' + spdiagm(0 => rand(10));
-LLDL = lldl(A, memory = 5)
+_ = lldl(A, memory = 5)
 
 K = MatrixMarket.mmread("bcsstk09.mtx")
 
@@ -23,7 +23,7 @@ METIS_P, METIS_invP = Metis.permutation(K)
 println("AMD ordering")
 @printf("%3s  %6s  %9s  %8s  %7s  %8s\n", "p", "nnz(K)", "nnz(LDLᵀ)", "‖LDLᵀ-K‖", "α", "time")
 for p = 0:5:130
-  LLDL, t, b, g, m = @timed lldl(K1, Kdiag, AMD_P, memory = p)
+  LLDL, t, b, g, m = @timed lldl(K, P = AMD_P, memory = p)
   L = LLDL.L + I
   @printf(
     "%3d  %6d  %9d  %8.2e  %7.1e  %8.2e\n",
@@ -41,7 +41,7 @@ println()
 println("Metis ordering")
 @printf("%3s  %6s  %9s  %8s  %7s  %8s\n", "p", "nnz(K)", "nnz(LDLᵀ)", "‖LDLᵀ-K‖", "α", "time")
 for p = 0:5:130
-  LLDL, t, b, g, m = @timed lldl(K1, Kdiag, METIS_P, memory = p)
+  LLDL, t, b, g, m = @timed lldl(K, P = METIS_P, memory = p)
   L = LLDL.L + I
   @printf(
     "%3d  %6d  %9d  %8.2e  %7.1e  %8.2e\n",
